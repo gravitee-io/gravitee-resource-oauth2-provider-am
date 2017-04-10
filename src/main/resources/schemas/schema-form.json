@@ -1,0 +1,32 @@
+{
+  "type" : "object",
+  "id" : "urn:jsonschema:io:gravitee:resource:oauth2:am:configuration:OAuth2ResourceConfiguration",
+  "properties" : {
+    "serverURL" : {
+      "title": "Gravitee.io AM Server URL",
+      "description": "The URL of the Gravitee.io Access Management server.",
+      "type" : "string"
+    },
+    "securityDomain" : {
+      "title": "Security domain",
+      "description": "The security domain (realm) from where the token has been generated and must be introspect.",
+      "type" : "string"
+    },
+    "clientId" : {
+      "title": "Client Id",
+      "description": "The client identifier.",
+      "type" : "string"
+    },
+    "clientSecret" : {
+      "title": "Client Secret",
+      "description": "The client secret.",
+      "type" : "string"
+    }
+  },
+  "required": [
+    "serverURL",
+    "securityDomain",
+    "clientId",
+    "clientSecret"
+  ]
+}
