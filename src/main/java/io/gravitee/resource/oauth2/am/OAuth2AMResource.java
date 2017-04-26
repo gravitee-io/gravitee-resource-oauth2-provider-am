@@ -26,7 +26,6 @@ import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.HttpClientRequest;
-import io.vertx.core.http.HttpMethod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,8 +53,24 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
         super.doStart();
 
         logger.info("Starting an OAuth2 resource using Gravitee.io Access Management server at {}", configuration().getServerURL());
-        HttpClientOptions httpClientOptions = new HttpClientOptions();
-        httpClientOptions.setVerifyHost(false).setTrustAll(true);
+
+        URI introspectionUri = URI.create(configuration().getServerURL());
+
+        int authorizationServerPort = introspectionUri.getPort() != -1 ? introspectionUri.getPort() :
+                (HTTPS_SCHEME.equals(introspectionUri.getScheme()) ? 443 : 80);
+        String authorizationServerHost = introspectionUri.getHost();
+
+        HttpClientOptions httpClientOptions = new HttpClientOptions()
+                .setDefaultPort(authorizationServerPort)
+                .setDefaultHost(authorizationServerHost);
+
+        // Use SSL connection if authorization schema is set to HTTPS
+        if (HTTPS_SCHEME.equalsIgnoreCase(introspectionUri.getScheme())) {
+            httpClientOptions
+                    .setSsl(true)
+                    .setVerifyHost(false)
+                    .setTrustAll(true);
+        }
 
         httpClient = Vertx.vertx().createHttpClient(httpClientOptions);
     }
@@ -72,10 +87,6 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
     @Override
     public void introspect(String accessToken, Handler<OAuth2Response> responseHandler) {
         OAuth2ResourceConfiguration configuration = configuration();
-        URI introspectionUri = URI.create(configuration.getServerURL());
-
-        final int port = introspectionUri.getPort() != -1 ? introspectionUri.getPort() :
-                (HTTPS_SCHEME.equals(introspectionUri.getScheme()) ? 443 : 80);
 
         String introspectionEndpointURI = configuration.getServerURL() +
                 '/' +
@@ -85,11 +96,7 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
 
         logger.debug("Introspect access token by requesting {} [{}]", introspectionEndpointURI);
 
-        HttpClientRequest request = httpClient.request(
-                HttpMethod.POST,
-                port,
-                introspectionUri.getHost(),
-                introspectionEndpointURI);
+        HttpClientRequest request = httpClient.post(introspectionEndpointURI);
 
         String authorizationValue = AUTHORIZATION_HEADER_BASIC_SCHEME +
                     Base64.getEncoder().encodeToString(
