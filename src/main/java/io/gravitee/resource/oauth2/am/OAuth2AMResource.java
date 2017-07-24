@@ -22,21 +22,27 @@ import io.gravitee.gateway.api.handler.Handler;
 import io.gravitee.resource.oauth2.am.configuration.OAuth2ResourceConfiguration;
 import io.gravitee.resource.oauth2.api.OAuth2Resource;
 import io.gravitee.resource.oauth2.api.OAuth2Response;
+import io.vertx.core.Context;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.HttpClientRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeansException;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 
 import java.net.URI;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * @author David BRASSELY (david.brassely at graviteesource.com)
  * @author GraviteeSource Team
  */
-public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration> {
+public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration> implements ApplicationContextAware {
 
     private final Logger logger = LoggerFactory.getLogger(OAuth2AMResource.class);
 
@@ -46,7 +52,13 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
     private static final char AUTHORIZATION_HEADER_VALUE_BASE64_SEPARATOR = ':';
     private static final String CHECK_TOKEN_ENDPOINT = "/oauth/check_token?token=";
 
-    private HttpClient httpClient;
+    private ApplicationContext applicationContext;
+
+    private final Map<Context, HttpClient> httpClients = new HashMap<>();
+
+    private HttpClientOptions httpClientOptions;
+
+    private Vertx vertx;
 
     @Override
     protected void doStart() throws Exception {
@@ -60,7 +72,7 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
                 (HTTPS_SCHEME.equals(introspectionUri.getScheme()) ? 443 : 80);
         String authorizationServerHost = introspectionUri.getHost();
 
-        HttpClientOptions httpClientOptions = new HttpClientOptions()
+        httpClientOptions = new HttpClientOptions()
                 .setDefaultPort(authorizationServerPort)
                 .setDefaultHost(authorizationServerHost);
 
@@ -72,20 +84,27 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
                     .setTrustAll(true);
         }
 
-        httpClient = Vertx.vertx().createHttpClient(httpClientOptions);
+        vertx = applicationContext.getBean(Vertx.class);
     }
 
     @Override
     protected void doStop() throws Exception {
         super.doStop();
 
-        if (httpClient != null) {
-            httpClient.close();
-        }
+        httpClients.values().forEach(httpClient -> {
+            try {
+                httpClient.close();
+            } catch (IllegalStateException ise) {
+                logger.warn(ise.getMessage());
+            }
+        });
     }
 
     @Override
     public void introspect(String accessToken, Handler<OAuth2Response> responseHandler) {
+        HttpClient httpClient = httpClients.computeIfAbsent(
+                Vertx.currentContext(), context -> vertx.createHttpClient(httpClientOptions));
+
         OAuth2ResourceConfiguration configuration = configuration();
 
         String introspectionEndpointURI = configuration.getServerURL() +
@@ -123,5 +142,10 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
         });
 
         request.end();
+    }
+
+    @Override
+    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+        this.applicationContext = applicationContext;
     }
 }
