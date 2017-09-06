@@ -50,7 +50,7 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
 
     private static final String AUTHORIZATION_HEADER_BASIC_SCHEME = "Basic ";
     private static final char AUTHORIZATION_HEADER_VALUE_BASE64_SEPARATOR = ':';
-    private static final String CHECK_TOKEN_ENDPOINT = "/oauth/check_token?token=";
+    private static final String CHECK_TOKEN_ENDPOINT = "/oauth/check_token";
 
     private ApplicationContext applicationContext;
 
@@ -110,8 +110,7 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
         String introspectionEndpointURI = configuration.getServerURL() +
                 '/' +
                 configuration.getSecurityDomain() +
-                CHECK_TOKEN_ENDPOINT +
-                accessToken;
+                CHECK_TOKEN_ENDPOINT;
 
         logger.debug("Introspect access token by requesting {} [{}]", introspectionEndpointURI);
 
@@ -126,6 +125,7 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
 
         // Set `Accept` header to ask for application/json content
         request.headers().add(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON);
+        request.headers().add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_FORM_URLENCODED);
 
         request.handler(response -> response.bodyHandler(buffer -> {
             logger.debug("AM Introspection endpoint returns a response with a {} status code", response.statusCode());
@@ -141,7 +141,7 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
             responseHandler.handle(new OAuth2Response(false, event.getMessage()));
         });
 
-        request.end();
+        request.end("token=" + accessToken);
     }
 
     @Override
