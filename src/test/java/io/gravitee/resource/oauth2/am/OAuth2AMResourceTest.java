@@ -108,4 +108,47 @@ public class OAuth2AMResourceTest {
 
         Assert.assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
     }
+
+    @Test
+    public void shouldGetUserInfo() throws Exception {
+        stubFor(get(urlEqualTo("/domain/userinfo"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody("{\"sub\": \"248289761001\", \"name\": \"Jane Doe\", \"given_name\": \"Jane\"}")));
+
+        final CountDownLatch lock = new CountDownLatch(1);
+
+        Mockito.when(configuration.getSecurityDomain()).thenReturn("domain");
+        Mockito.when(configuration.getServerURL()).thenReturn("http://localhost:" + wireMockRule.port());
+
+        resource.doStart();
+
+        resource.userInfo("xxxx-xxxx-xxxx-xxxx", userInfoResponse -> {
+            Assert.assertTrue(userInfoResponse.isSuccess());
+            lock.countDown();
+        });
+
+        Assert.assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
+    }
+
+    @Test
+    public void shouldNotGetUserInfo() throws Exception {
+        stubFor(get(urlEqualTo("/domain/userinfo"))
+                .willReturn(aResponse()
+                        .withStatus(401)));
+
+        final CountDownLatch lock = new CountDownLatch(1);
+
+        Mockito.when(configuration.getSecurityDomain()).thenReturn("domain");
+        Mockito.when(configuration.getServerURL()).thenReturn("http://localhost:" + wireMockRule.port());
+
+        resource.doStart();
+
+        resource.userInfo("xxxx-xxxx-xxxx-xxxx", userInfoResponse -> {
+            Assert.assertFalse(userInfoResponse.isSuccess());
+            lock.countDown();
+        });
+
+        Assert.assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
+    }
 }
