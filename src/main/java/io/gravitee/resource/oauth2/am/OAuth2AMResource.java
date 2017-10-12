@@ -22,6 +22,7 @@ import io.gravitee.gateway.api.handler.Handler;
 import io.gravitee.resource.oauth2.am.configuration.OAuth2ResourceConfiguration;
 import io.gravitee.resource.oauth2.api.OAuth2Resource;
 import io.gravitee.resource.oauth2.api.OAuth2Response;
+import io.gravitee.resource.oauth2.api.openid.UserInfoResponse;
 import io.vertx.core.Context;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
@@ -49,8 +50,10 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
     private static final String HTTPS_SCHEME = "https";
 
     private static final String AUTHORIZATION_HEADER_BASIC_SCHEME = "Basic ";
+    private static final String AUTHORIZATION_HEADER_BEARER_SCHEME = "Bearer ";
     private static final char AUTHORIZATION_HEADER_VALUE_BASE64_SEPARATOR = ':';
     private static final String CHECK_TOKEN_ENDPOINT = "/oauth/check_token";
+    private static final String USERINFO_ENDPOINT = "/userinfo";
 
     private ApplicationContext applicationContext;
 
@@ -59,6 +62,10 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
     private HttpClientOptions httpClientOptions;
 
     private Vertx vertx;
+
+    private String introspectionEndpointURI;
+    private String introspectionEndpointAuthorization;
+    private String userInfoEndpointURI;
 
     @Override
     protected void doStart() throws Exception {
@@ -84,6 +91,19 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
                     .setTrustAll(true);
         }
 
+        // Prepare introspection endpoint calls
+        introspectionEndpointURI = configuration().getServerURL() + '/' + configuration().getSecurityDomain() +
+                CHECK_TOKEN_ENDPOINT;
+
+        introspectionEndpointAuthorization = AUTHORIZATION_HEADER_BASIC_SCHEME +
+                Base64.getEncoder().encodeToString(
+                        (configuration().getClientId() + AUTHORIZATION_HEADER_VALUE_BASE64_SEPARATOR +
+                                configuration().getClientSecret()).getBytes());
+
+        // Prepare userinfo endpoint calls
+        userInfoEndpointURI = configuration().getServerURL() + '/' + configuration().getSecurityDomain() +
+                USERINFO_ENDPOINT;
+
         vertx = applicationContext.getBean(Vertx.class);
     }
 
@@ -105,25 +125,11 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
         HttpClient httpClient = httpClients.computeIfAbsent(
                 Vertx.currentContext(), context -> vertx.createHttpClient(httpClientOptions));
 
-        OAuth2ResourceConfiguration configuration = configuration();
-
-        String introspectionEndpointURI = configuration.getServerURL() +
-                '/' +
-                configuration.getSecurityDomain() +
-                CHECK_TOKEN_ENDPOINT;
-
-        logger.debug("Introspect access token by requesting {} [{}]", introspectionEndpointURI);
+        logger.debug("Introspect access token by requesting {}", introspectionEndpointURI);
 
         HttpClientRequest request = httpClient.post(introspectionEndpointURI);
 
-        String authorizationValue = AUTHORIZATION_HEADER_BASIC_SCHEME +
-                    Base64.getEncoder().encodeToString(
-                            (configuration.getClientId() +
-                                    AUTHORIZATION_HEADER_VALUE_BASE64_SEPARATOR +
-                                    configuration.getClientSecret()).getBytes());
-        request.headers().add(HttpHeaders.AUTHORIZATION, authorizationValue);
-
-        // Set `Accept` header to ask for application/json content
+        request.headers().add(HttpHeaders.AUTHORIZATION, introspectionEndpointAuthorization);
         request.headers().add(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON);
         request.headers().add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_FORM_URLENCODED);
 
@@ -142,6 +148,36 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
         });
 
         request.end("token=" + accessToken);
+    }
+
+    @Override
+    public void userInfo(String accessToken, Handler<UserInfoResponse> responseHandler) {
+        HttpClient httpClient = httpClients.computeIfAbsent(
+                Vertx.currentContext(), context -> vertx.createHttpClient(httpClientOptions));
+
+        logger.debug("Get userinfo from {}", userInfoEndpointURI);
+
+        HttpClientRequest request = httpClient.get(userInfoEndpointURI);
+
+        request.headers().add(HttpHeaders.AUTHORIZATION, AUTHORIZATION_HEADER_BEARER_SCHEME + accessToken);
+        request.headers().add(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON);
+
+        request.handler(response -> response.bodyHandler(buffer -> {
+            logger.debug("Userinfo endpoint returns a response with a {} status code", response.statusCode());
+
+            if (response.statusCode() == HttpStatusCode.OK_200) {
+                responseHandler.handle(new UserInfoResponse(true, buffer.toString()));
+            } else {
+                responseHandler.handle(new UserInfoResponse(false, buffer.toString()));
+            }
+        }));
+
+        request.exceptionHandler(event -> {
+            logger.error("An error occurs while getting userinfo from access_token", event);
+            responseHandler.handle(new UserInfoResponse(false, event.getMessage()));
+        });
+
+        request.end();
     }
 
     @Override
