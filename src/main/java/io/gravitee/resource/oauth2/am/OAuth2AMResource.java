@@ -91,18 +91,20 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
                     .setTrustAll(true);
         }
 
-        // Prepare introspection endpoint calls
-        introspectionEndpointURI = configuration().getServerURL() + '/' + configuration().getSecurityDomain() +
-                CHECK_TOKEN_ENDPOINT;
-
         introspectionEndpointAuthorization = AUTHORIZATION_HEADER_BASIC_SCHEME +
                 Base64.getEncoder().encodeToString(
                         (configuration().getClientId() + AUTHORIZATION_HEADER_VALUE_BASE64_SEPARATOR +
                                 configuration().getClientSecret()).getBytes());
 
+        String path = (! introspectionUri.getPath().isEmpty()) ? introspectionUri.getPath() : "/";
+
         // Prepare userinfo endpoint calls
-        userInfoEndpointURI = configuration().getServerURL() + '/' + configuration().getSecurityDomain() +
+        userInfoEndpointURI = path + configuration().getSecurityDomain() +
                 USERINFO_ENDPOINT;
+
+        // Prepare introspection endpoint calls
+        introspectionEndpointURI = path + configuration().getSecurityDomain() +
+                CHECK_TOKEN_ENDPOINT;
 
         vertx = applicationContext.getBean(Vertx.class);
     }
