@@ -88,6 +88,31 @@ public class OAuth2AMResourceTest {
     }
 
     @Test
+    public void shouldCallWithFormBody_v2() throws Exception {
+        String accessToken = "xxxx-xxxx-xxxx-xxxx";
+        stubFor(post(urlEqualTo("/domain/oauth/introspect"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody("{\"key\": \"value\"}")));
+
+        final CountDownLatch lock = new CountDownLatch(1);
+
+        Mockito.when(configuration.getSecurityDomain()).thenReturn("domain");
+        Mockito.when(configuration.getVersion()).thenReturn(OAuth2ResourceConfiguration.Version.V2_X);
+        Mockito.when(configuration.getServerURL()).thenReturn("http://localhost:" + wireMockRule.port());
+
+        resource.doStart();
+
+        resource.introspect(accessToken, oAuth2Response -> lock.countDown());
+
+        Assert.assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
+
+        verify(postRequestedFor(urlEqualTo("/domain/oauth/introspect"))
+                .withHeader(HttpHeaders.CONTENT_TYPE, equalTo(MediaType.APPLICATION_FORM_URLENCODED))
+                .withRequestBody(equalTo("token="+accessToken)));
+    }
+
+    @Test
     public void shouldNotValidateAccessToken() throws Exception {
         String accessToken = "xxxx-xxxx-xxxx-xxxx";
         stubFor(post(urlEqualTo("/domain/oauth/check_token"))
@@ -110,6 +135,30 @@ public class OAuth2AMResourceTest {
     }
 
     @Test
+    public void shouldNotValidateAccessToken_v2() throws Exception {
+        String accessToken = "xxxx-xxxx-xxxx-xxxx";
+        stubFor(post(urlEqualTo("/domain/oauth/introspect"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody("{\"active\": false}")));
+
+        final CountDownLatch lock = new CountDownLatch(1);
+
+        Mockito.when(configuration.getSecurityDomain()).thenReturn("domain");
+        Mockito.when(configuration.getVersion()).thenReturn(OAuth2ResourceConfiguration.Version.V2_X);
+        Mockito.when(configuration.getServerURL()).thenReturn("http://localhost:" + wireMockRule.port());
+
+        resource.doStart();
+
+        resource.introspect(accessToken, oAuth2Response -> {
+            Assert.assertFalse(oAuth2Response.isSuccess());
+            lock.countDown();
+        });
+
+        Assert.assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
+    }
+
+    @Test
     public void shouldGetUserInfo() throws Exception {
         stubFor(get(urlEqualTo("/domain/userinfo"))
                 .willReturn(aResponse()
@@ -119,6 +168,29 @@ public class OAuth2AMResourceTest {
         final CountDownLatch lock = new CountDownLatch(1);
 
         Mockito.when(configuration.getSecurityDomain()).thenReturn("domain");
+        Mockito.when(configuration.getServerURL()).thenReturn("http://localhost:" + wireMockRule.port());
+
+        resource.doStart();
+
+        resource.userInfo("xxxx-xxxx-xxxx-xxxx", userInfoResponse -> {
+            Assert.assertTrue(userInfoResponse.isSuccess());
+            lock.countDown();
+        });
+
+        Assert.assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
+    }
+
+    @Test
+    public void shouldGetUserInfo_v2() throws Exception {
+        stubFor(get(urlEqualTo("/domain/oidc/userinfo"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody("{\"sub\": \"248289761001\", \"name\": \"Jane Doe\", \"given_name\": \"Jane\"}")));
+
+        final CountDownLatch lock = new CountDownLatch(1);
+
+        Mockito.when(configuration.getSecurityDomain()).thenReturn("domain");
+        Mockito.when(configuration.getVersion()).thenReturn(OAuth2ResourceConfiguration.Version.V2_X);
         Mockito.when(configuration.getServerURL()).thenReturn("http://localhost:" + wireMockRule.port());
 
         resource.doStart();

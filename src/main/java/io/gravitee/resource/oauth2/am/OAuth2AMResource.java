@@ -28,13 +28,14 @@ import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.HttpClientRequest;
+import io.vertx.core.json.JsonObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 
-import java.net.URI;
+import java.net.URL;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
@@ -52,8 +53,14 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
     private static final String AUTHORIZATION_HEADER_BASIC_SCHEME = "Basic ";
     private static final String AUTHORIZATION_HEADER_BEARER_SCHEME = "Bearer ";
     private static final char AUTHORIZATION_HEADER_VALUE_BASE64_SEPARATOR = ':';
+
     private static final String CHECK_TOKEN_ENDPOINT = "/oauth/check_token";
+    private static final String INTROSPECT_ENDPOINT_V2 = "/oauth/introspect";
+
     private static final String USERINFO_ENDPOINT = "/userinfo";
+    private static final String USERINFO_ENDPOINT_V2 = "/oidc/userinfo";
+
+    private static final String INTROSPECTION_ACTIVE_INDICATOR = "active";
 
     private ApplicationContext applicationContext;
 
@@ -73,18 +80,20 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
 
         logger.info("Starting an OAuth2 resource using Gravitee.io Access Management server at {}", configuration().getServerURL());
 
-        URI introspectionUri = URI.create(configuration().getServerURL());
+        URL introspectionUrl = new URL(configuration().getServerURL());
 
-        int authorizationServerPort = introspectionUri.getPort() != -1 ? introspectionUri.getPort() :
-                (HTTPS_SCHEME.equals(introspectionUri.getScheme()) ? 443 : 80);
-        String authorizationServerHost = introspectionUri.getHost();
+        int authorizationServerPort = introspectionUrl.getPort() != -1 ? introspectionUrl.getPort() :
+                (HTTPS_SCHEME.equals(introspectionUrl.getProtocol()) ? 443 : 80);
+
+        // URI.getHost does not support '_' in the name, so we are using an intermediate URL to get the final host
+        String authorizationServerHost = introspectionUrl.getHost();
 
         httpClientOptions = new HttpClientOptions()
                 .setDefaultPort(authorizationServerPort)
                 .setDefaultHost(authorizationServerHost);
 
         // Use SSL connection if authorization schema is set to HTTPS
-        if (HTTPS_SCHEME.equalsIgnoreCase(introspectionUri.getScheme())) {
+        if (HTTPS_SCHEME.equalsIgnoreCase(introspectionUrl.getProtocol())) {
             httpClientOptions
                     .setSsl(true)
                     .setVerifyHost(false)
@@ -96,15 +105,22 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
                         (configuration().getClientId() + AUTHORIZATION_HEADER_VALUE_BASE64_SEPARATOR +
                                 configuration().getClientSecret()).getBytes());
 
-        String path = (! introspectionUri.getPath().isEmpty()) ? introspectionUri.getPath() : "/";
+        String path = (! introspectionUrl.getPath().isEmpty()) ? introspectionUrl.getPath() : "/";
 
-        // Prepare userinfo endpoint calls
-        userInfoEndpointURI = path + configuration().getSecurityDomain() +
-                USERINFO_ENDPOINT;
+        // Prepare userinfo and introspection endpoints
+        if (configuration().getVersion() == OAuth2ResourceConfiguration.Version.V2_X) {
+            introspectionEndpointURI = path + configuration().getSecurityDomain() +
+                    INTROSPECT_ENDPOINT_V2;
 
-        // Prepare introspection endpoint calls
-        introspectionEndpointURI = path + configuration().getSecurityDomain() +
-                CHECK_TOKEN_ENDPOINT;
+            userInfoEndpointURI = path + configuration().getSecurityDomain() +
+                    USERINFO_ENDPOINT_V2;
+        } else {
+            introspectionEndpointURI = path + configuration().getSecurityDomain() +
+                    CHECK_TOKEN_ENDPOINT;
+
+            userInfoEndpointURI = path + configuration().getSecurityDomain() +
+                    USERINFO_ENDPOINT;
+        }
 
         vertx = applicationContext.getBean(Vertx.class);
     }
@@ -138,7 +154,16 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
         request.handler(response -> response.bodyHandler(buffer -> {
             logger.debug("AM Introspection endpoint returns a response with a {} status code", response.statusCode());
             if (response.statusCode() == HttpStatusCode.OK_200) {
-                responseHandler.handle(new OAuth2Response(true, buffer.toString()));
+                // Introspection Response for AM v2 always returns HTTP 200
+                // with an "active" boolean indicator of whether or not the presented token is currently active.
+                if (configuration().getVersion() == OAuth2ResourceConfiguration.Version.V2_X) {
+                    // retrieve active indicator
+                    JsonObject jsonObject = buffer.toJsonObject();
+                    boolean active = jsonObject.getBoolean(INTROSPECTION_ACTIVE_INDICATOR, false);
+                    responseHandler.handle(new OAuth2Response(active, (active) ? buffer.toString() : "{\"error\": \"Invalid Access Token\"}"));
+                } else {
+                    responseHandler.handle(new OAuth2Response(true, buffer.toString()));
+                }
             } else {
                 responseHandler.handle(new OAuth2Response(false, buffer.toString()));
             }
