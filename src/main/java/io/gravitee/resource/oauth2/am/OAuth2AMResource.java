@@ -90,7 +90,9 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
 
         httpClientOptions = new HttpClientOptions()
                 .setDefaultPort(authorizationServerPort)
-                .setDefaultHost(authorizationServerHost);
+                .setDefaultHost(authorizationServerHost)
+                .setIdleTimeout(60)
+                .setConnectTimeout(10000);
 
         // Use SSL connection if authorization schema is set to HTTPS
         if (HTTPS_SCHEME.equalsIgnoreCase(introspectionUrl.getProtocol())) {
@@ -146,6 +148,7 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
         logger.debug("Introspect access token by requesting {}", introspectionEndpointURI);
 
         HttpClientRequest request = httpClient.post(introspectionEndpointURI);
+        request.setTimeout(30000L);
 
         request.headers().add(HttpHeaders.AUTHORIZATION, introspectionEndpointAuthorization);
         request.headers().add(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON);
