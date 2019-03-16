@@ -28,6 +28,12 @@
       "title": "Client Secret",
       "description": "The client secret.",
       "type" : "string"
+    },
+    "userClaim" : {
+      "title": "User claim",
+      "description": "User claim field used to store end user on log analytics",
+      "type": "string",
+      "default": "sub"
     }
   },
   "required": [
