@@ -211,6 +211,11 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
     }
 
     @Override
+    public String getUserClaim() {
+        return configuration().getUserClaim();
+    }
+
+    @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
         this.applicationContext = applicationContext;
     }

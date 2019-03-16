@@ -33,6 +33,8 @@ public class OAuth2ResourceConfiguration implements ResourceConfiguration {
 
     private Version version = Version.V1_X;
 
+    private String userClaim;
+
     public String getServerURL() {
         return serverURL;
     }
@@ -71,6 +73,14 @@ public class OAuth2ResourceConfiguration implements ResourceConfiguration {
 
     public void setVersion(Version version) {
         this.version = version;
+    }
+
+    public String getUserClaim() {
+        return userClaim;
+    }
+
+    public void setUserClaim(String userClaim) {
+        this.userClaim = userClaim;
     }
 
     public enum Version {
