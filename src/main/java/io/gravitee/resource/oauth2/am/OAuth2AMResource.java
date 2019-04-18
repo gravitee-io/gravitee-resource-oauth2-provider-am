@@ -163,7 +163,7 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
                     // retrieve active indicator
                     JsonObject jsonObject = buffer.toJsonObject();
                     boolean active = jsonObject.getBoolean(INTROSPECTION_ACTIVE_INDICATOR, false);
-                    responseHandler.handle(new OAuth2Response(active, (active) ? buffer.toString() : "{\"error\": \"Invalid Access Token\"}"));
+                    responseHandler.handle(new OAuth2Response(active, (active) ? buffer.toString() : "Invalid Access Token"));
                 } else {
                     responseHandler.handle(new OAuth2Response(true, buffer.toString()));
                 }
