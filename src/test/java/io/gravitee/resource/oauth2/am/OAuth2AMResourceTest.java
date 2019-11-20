@@ -18,6 +18,7 @@ package io.gravitee.resource.oauth2.am;
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import io.gravitee.common.http.HttpHeaders;
 import io.gravitee.common.http.MediaType;
+import io.gravitee.node.api.Node;
 import io.gravitee.resource.oauth2.am.configuration.OAuth2ResourceConfiguration;
 import io.vertx.core.Vertx;
 import org.junit.Assert;
@@ -54,6 +55,9 @@ public class OAuth2AMResourceTest {
     @Mock
     private OAuth2ResourceConfiguration configuration;
 
+    @Mock
+    private Node node;
+
     @InjectMocks
     private OAuth2AMResource resource;
 
@@ -61,6 +65,7 @@ public class OAuth2AMResourceTest {
     public void init() {
         initMocks(this);
         Mockito.when(applicationContext.getBean(Vertx.class)).thenReturn(Vertx.vertx());
+        Mockito.when(applicationContext.getBean(Node.class)).thenReturn(node);
     }
 
     @Test

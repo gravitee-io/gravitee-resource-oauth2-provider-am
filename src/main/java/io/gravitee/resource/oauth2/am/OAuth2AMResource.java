@@ -18,7 +18,10 @@ package io.gravitee.resource.oauth2.am;
 import io.gravitee.common.http.HttpHeaders;
 import io.gravitee.common.http.HttpStatusCode;
 import io.gravitee.common.http.MediaType;
+import io.gravitee.common.utils.UUID;
 import io.gravitee.gateway.api.handler.Handler;
+import io.gravitee.node.api.Node;
+import io.gravitee.node.api.utils.NodeUtils;
 import io.gravitee.resource.oauth2.am.configuration.OAuth2ResourceConfiguration;
 import io.gravitee.resource.oauth2.api.OAuth2Resource;
 import io.gravitee.resource.oauth2.api.OAuth2Response;
@@ -69,6 +72,7 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
     private HttpClientOptions httpClientOptions;
 
     private Vertx vertx;
+    private String userAgent;
 
     private String introspectionEndpointURI;
     private String introspectionEndpointAuthorization;
@@ -124,6 +128,7 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
                     USERINFO_ENDPOINT;
         }
 
+        userAgent = NodeUtils.userAgent(applicationContext.getBean(Node.class));
         vertx = applicationContext.getBean(Vertx.class);
     }
 
@@ -149,7 +154,8 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
 
         HttpClientRequest request = httpClient.post(introspectionEndpointURI);
         request.setTimeout(30000L);
-
+        request.headers().add(HttpHeaders.USER_AGENT, userAgent);
+        request.headers().add("X-Gravitee-Request-Id", UUID.toString(UUID.random()));
         request.headers().add(HttpHeaders.AUTHORIZATION, introspectionEndpointAuthorization);
         request.headers().add(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON);
         request.headers().add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_FORM_URLENCODED);
@@ -189,6 +195,8 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
 
         HttpClientRequest request = httpClient.get(userInfoEndpointURI);
 
+        request.headers().add(HttpHeaders.USER_AGENT, userAgent);
+        request.headers().add("X-Gravitee-Request-Id", UUID.toString(UUID.random()));
         request.headers().add(HttpHeaders.AUTHORIZATION, AUTHORIZATION_HEADER_BEARER_SCHEME + accessToken);
         request.headers().add(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON);
 
