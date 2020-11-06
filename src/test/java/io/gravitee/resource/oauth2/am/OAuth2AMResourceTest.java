@@ -66,6 +66,7 @@ public class OAuth2AMResourceTest {
         initMocks(this);
         Mockito.when(applicationContext.getBean(Vertx.class)).thenReturn(Vertx.vertx());
         Mockito.when(applicationContext.getBean(Node.class)).thenReturn(node);
+        Mockito.when(configuration.getVersion()).thenReturn(new OAuth2ResourceConfiguration().getVersion());
     }
 
     @Test
