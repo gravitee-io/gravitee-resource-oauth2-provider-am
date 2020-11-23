@@ -114,18 +114,18 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
         String path = (! introspectionUrl.getPath().isEmpty()) ? introspectionUrl.getPath() : "/";
 
         // Prepare userinfo and introspection endpoints
-        if (configuration().getVersion() == OAuth2ResourceConfiguration.Version.V2_X) {
-            introspectionEndpointURI = path + configuration().getSecurityDomain() +
-                    INTROSPECT_ENDPOINT_V2;
-
-            userInfoEndpointURI = path + configuration().getSecurityDomain() +
-                    USERINFO_ENDPOINT_V2;
-        } else {
+        if (configuration().getVersion() == OAuth2ResourceConfiguration.Version.V1_X) {
             introspectionEndpointURI = path + configuration().getSecurityDomain() +
                     CHECK_TOKEN_ENDPOINT;
 
             userInfoEndpointURI = path + configuration().getSecurityDomain() +
                     USERINFO_ENDPOINT;
+        } else {
+            introspectionEndpointURI = path + configuration().getSecurityDomain() +
+                    INTROSPECT_ENDPOINT_V2;
+
+            userInfoEndpointURI = path + configuration().getSecurityDomain() +
+                    USERINFO_ENDPOINT_V2;
         }
 
         userAgent = NodeUtils.userAgent(applicationContext.getBean(Node.class));
@@ -163,15 +163,15 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
         request.handler(response -> response.bodyHandler(buffer -> {
             logger.debug("AM Introspection endpoint returns a response with a {} status code", response.statusCode());
             if (response.statusCode() == HttpStatusCode.OK_200) {
-                // Introspection Response for AM v2 always returns HTTP 200
-                // with an "active" boolean indicator of whether or not the presented token is currently active.
-                if (configuration().getVersion() == OAuth2ResourceConfiguration.Version.V2_X) {
+                if (configuration().getVersion() == OAuth2ResourceConfiguration.Version.V1_X) {
+                    responseHandler.handle(new OAuth2Response(true, buffer.toString()));
+                } else {
+                    // Introspection Response from AM v2 always returns HTTP 200
+                    // with an "active" boolean indicator of whether or not the presented token is currently active.
                     // retrieve active indicator
                     JsonObject jsonObject = buffer.toJsonObject();
                     boolean active = jsonObject.getBoolean(INTROSPECTION_ACTIVE_INDICATOR, false);
                     responseHandler.handle(new OAuth2Response(active, (active) ? buffer.toString() : "{\"error\": \"Invalid Access Token\"}"));
-                } else {
-                    responseHandler.handle(new OAuth2Response(true, buffer.toString()));
                 }
             } else {
                 responseHandler.handle(new OAuth2Response(false, buffer.toString()));
