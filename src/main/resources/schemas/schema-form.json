@@ -27,7 +27,10 @@
     "clientSecret" : {
       "title": "Client Secret",
       "description": "The client secret.",
-      "type" : "string"
+      "type" : "string",
+      "x-schema-form": {
+        "type": "password"
+      }
     },
     "userClaim" : {
       "title": "User claim",
