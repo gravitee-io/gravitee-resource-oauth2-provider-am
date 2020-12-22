@@ -35,6 +35,8 @@ public class OAuth2ResourceConfiguration implements ResourceConfiguration {
 
     private String userClaim;
 
+    private boolean useSystemProxy;
+
     public String getServerURL() {
         return serverURL;
     }
@@ -81,6 +83,14 @@ public class OAuth2ResourceConfiguration implements ResourceConfiguration {
 
     public void setUserClaim(String userClaim) {
         this.userClaim = userClaim;
+    }
+
+    public boolean isUseSystemProxy() {
+        return useSystemProxy;
+    }
+
+    public void setUseSystemProxy(boolean useSystemProxy) {
+        this.useSystemProxy = useSystemProxy;
     }
 
     public enum Version {
