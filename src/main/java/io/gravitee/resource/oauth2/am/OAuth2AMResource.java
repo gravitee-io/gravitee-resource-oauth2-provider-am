@@ -69,6 +69,7 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
 
     private static final String INTROSPECTION_ACTIVE_INDICATOR = "active";
 
+    private static final String PATH_SEPARATOR = "/";
     private ApplicationContext applicationContext;
 
     private final Map<Context, HttpClient> httpClients = new HashMap<>();
@@ -120,7 +121,10 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
                         (configuration().getClientId() + AUTHORIZATION_HEADER_VALUE_BASE64_SEPARATOR +
                                 configuration().getClientSecret()).getBytes());
 
-        String path = (! introspectionUrl.getPath().isEmpty()) ? introspectionUrl.getPath() : "/";
+        String path = (! introspectionUrl.getPath().isEmpty()) ? introspectionUrl.getPath() : PATH_SEPARATOR;
+        if (! path.endsWith(PATH_SEPARATOR)) {
+            path += PATH_SEPARATOR;
+        }
 
         // Prepare userinfo and introspection endpoints
         if (configuration().getVersion() == OAuth2ResourceConfiguration.Version.V1_X) {
