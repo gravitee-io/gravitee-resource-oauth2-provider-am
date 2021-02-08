@@ -229,4 +229,25 @@ public class OAuth2AMResourceTest {
 
         Assert.assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
     }
+
+    @Test
+    public void shouldAppendMissingTrailingSlah() throws Exception {
+        stubFor(get(urlEqualTo("/test/domain/userinfo"))
+                .willReturn(aResponse()
+                        .withStatus(401)));
+
+        final CountDownLatch lock = new CountDownLatch(1);
+
+        Mockito.when(configuration.getSecurityDomain()).thenReturn("domain");
+        Mockito.when(configuration.getServerURL()).thenReturn("http://localhost:" + wireMockRule.port() + "/test");
+
+        resource.doStart();
+
+        resource.userInfo("xxxx-xxxx-xxxx-xxxx", userInfoResponse -> {
+            Assert.assertFalse(userInfoResponse.isSuccess());
+            lock.countDown();
+        });
+
+        Assert.assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
+    }
 }

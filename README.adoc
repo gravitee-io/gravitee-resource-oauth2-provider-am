@@ -41,6 +41,18 @@ You can configure the resource with the following options :
 ^.^|string
 ^.^|-
 
+.^|userClaim
+^.^|-
+|User claim field used to store end user on log analytics.
+^.^|string
+^.^|sub
+
+.^|useSystemProxy
+^.^|-
+|Use system proxy.
+^.^|boolean
+^.^|false
+
 |===
 
 
@@ -52,7 +64,8 @@ You can configure the resource with the following options :
         "clientId": "my-client",
         "clientSecret": "f2ddb55e-30b5-4a45-9db5-5e30b52a4574",
         "securityDomain": "my-security",
-        "serverURL": "https://graviteeio_access_management"
+        "serverURL": "https://graviteeio_access_management",
+        "userClaim": "sub"
     }
 }
 ----
