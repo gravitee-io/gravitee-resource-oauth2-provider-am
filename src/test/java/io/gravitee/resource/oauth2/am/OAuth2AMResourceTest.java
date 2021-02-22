@@ -15,12 +15,18 @@
  */
 package io.gravitee.resource.oauth2.am;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
+import static org.mockito.MockitoAnnotations.initMocks;
+
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import io.gravitee.common.http.HttpHeaders;
 import io.gravitee.common.http.MediaType;
 import io.gravitee.node.api.Node;
 import io.gravitee.resource.oauth2.am.configuration.OAuth2ResourceConfiguration;
 import io.vertx.core.Vertx;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
@@ -31,13 +37,6 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
 import org.springframework.context.ApplicationContext;
-
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-
-import static com.github.tomakehurst.wiremock.client.WireMock.*;
-import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
-import static org.mockito.MockitoAnnotations.initMocks;
 
 /**
  * @author David BRASSELY (david.brassely at graviteesource.com)
@@ -72,10 +71,7 @@ public class OAuth2AMResourceTest {
     @Test
     public void shouldCallWithFormBody() throws Exception {
         String accessToken = "xxxx-xxxx-xxxx-xxxx";
-        stubFor(post(urlEqualTo("/domain/oauth/check_token"))
-                .willReturn(aResponse()
-                        .withStatus(200)
-                        .withBody("{\"key\": \"value\"}")));
+        stubFor(post(urlEqualTo("/domain/oauth/check_token")).willReturn(aResponse().withStatus(200).withBody("{\"key\": \"value\"}")));
 
         final CountDownLatch lock = new CountDownLatch(1);
 
@@ -88,18 +84,17 @@ public class OAuth2AMResourceTest {
 
         Assert.assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
 
-        verify(postRequestedFor(urlEqualTo("/domain/oauth/check_token"))
+        verify(
+            postRequestedFor(urlEqualTo("/domain/oauth/check_token"))
                 .withHeader(HttpHeaders.CONTENT_TYPE, equalTo(MediaType.APPLICATION_FORM_URLENCODED))
-                .withRequestBody(equalTo("token="+accessToken)));
+                .withRequestBody(equalTo("token=" + accessToken))
+        );
     }
 
     @Test
     public void shouldCallWithFormBody_v2() throws Exception {
         String accessToken = "xxxx-xxxx-xxxx-xxxx";
-        stubFor(post(urlEqualTo("/domain/oauth/introspect"))
-                .willReturn(aResponse()
-                        .withStatus(200)
-                        .withBody("{\"key\": \"value\"}")));
+        stubFor(post(urlEqualTo("/domain/oauth/introspect")).willReturn(aResponse().withStatus(200).withBody("{\"key\": \"value\"}")));
 
         final CountDownLatch lock = new CountDownLatch(1);
 
@@ -113,17 +108,17 @@ public class OAuth2AMResourceTest {
 
         Assert.assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
 
-        verify(postRequestedFor(urlEqualTo("/domain/oauth/introspect"))
+        verify(
+            postRequestedFor(urlEqualTo("/domain/oauth/introspect"))
                 .withHeader(HttpHeaders.CONTENT_TYPE, equalTo(MediaType.APPLICATION_FORM_URLENCODED))
-                .withRequestBody(equalTo("token="+accessToken)));
+                .withRequestBody(equalTo("token=" + accessToken))
+        );
     }
 
     @Test
     public void shouldNotValidateAccessToken() throws Exception {
         String accessToken = "xxxx-xxxx-xxxx-xxxx";
-        stubFor(post(urlEqualTo("/domain/oauth/check_token"))
-                .willReturn(aResponse()
-                        .withStatus(401)));
+        stubFor(post(urlEqualTo("/domain/oauth/check_token")).willReturn(aResponse().withStatus(401)));
 
         final CountDownLatch lock = new CountDownLatch(1);
 
@@ -132,10 +127,13 @@ public class OAuth2AMResourceTest {
 
         resource.doStart();
 
-        resource.introspect(accessToken, oAuth2Response -> {
-            Assert.assertFalse(oAuth2Response.isSuccess());
-            lock.countDown();
-        });
+        resource.introspect(
+            accessToken,
+            oAuth2Response -> {
+                Assert.assertFalse(oAuth2Response.isSuccess());
+                lock.countDown();
+            }
+        );
 
         Assert.assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
     }
@@ -143,10 +141,7 @@ public class OAuth2AMResourceTest {
     @Test
     public void shouldNotValidateAccessToken_v2() throws Exception {
         String accessToken = "xxxx-xxxx-xxxx-xxxx";
-        stubFor(post(urlEqualTo("/domain/oauth/introspect"))
-                .willReturn(aResponse()
-                        .withStatus(200)
-                        .withBody("{\"active\": false}")));
+        stubFor(post(urlEqualTo("/domain/oauth/introspect")).willReturn(aResponse().withStatus(200).withBody("{\"active\": false}")));
 
         final CountDownLatch lock = new CountDownLatch(1);
 
@@ -156,20 +151,25 @@ public class OAuth2AMResourceTest {
 
         resource.doStart();
 
-        resource.introspect(accessToken, oAuth2Response -> {
-            Assert.assertFalse(oAuth2Response.isSuccess());
-            lock.countDown();
-        });
+        resource.introspect(
+            accessToken,
+            oAuth2Response -> {
+                Assert.assertFalse(oAuth2Response.isSuccess());
+                lock.countDown();
+            }
+        );
 
         Assert.assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
     }
 
     @Test
     public void shouldGetUserInfo() throws Exception {
-        stubFor(get(urlEqualTo("/domain/userinfo"))
-                .willReturn(aResponse()
-                        .withStatus(200)
-                        .withBody("{\"sub\": \"248289761001\", \"name\": \"Jane Doe\", \"given_name\": \"Jane\"}")));
+        stubFor(
+            get(urlEqualTo("/domain/userinfo"))
+                .willReturn(
+                    aResponse().withStatus(200).withBody("{\"sub\": \"248289761001\", \"name\": \"Jane Doe\", \"given_name\": \"Jane\"}")
+                )
+        );
 
         final CountDownLatch lock = new CountDownLatch(1);
 
@@ -178,20 +178,25 @@ public class OAuth2AMResourceTest {
 
         resource.doStart();
 
-        resource.userInfo("xxxx-xxxx-xxxx-xxxx", userInfoResponse -> {
-            Assert.assertTrue(userInfoResponse.isSuccess());
-            lock.countDown();
-        });
+        resource.userInfo(
+            "xxxx-xxxx-xxxx-xxxx",
+            userInfoResponse -> {
+                Assert.assertTrue(userInfoResponse.isSuccess());
+                lock.countDown();
+            }
+        );
 
         Assert.assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
     }
 
     @Test
     public void shouldGetUserInfo_v2() throws Exception {
-        stubFor(get(urlEqualTo("/domain/oidc/userinfo"))
-                .willReturn(aResponse()
-                        .withStatus(200)
-                        .withBody("{\"sub\": \"248289761001\", \"name\": \"Jane Doe\", \"given_name\": \"Jane\"}")));
+        stubFor(
+            get(urlEqualTo("/domain/oidc/userinfo"))
+                .willReturn(
+                    aResponse().withStatus(200).withBody("{\"sub\": \"248289761001\", \"name\": \"Jane Doe\", \"given_name\": \"Jane\"}")
+                )
+        );
 
         final CountDownLatch lock = new CountDownLatch(1);
 
@@ -201,19 +206,20 @@ public class OAuth2AMResourceTest {
 
         resource.doStart();
 
-        resource.userInfo("xxxx-xxxx-xxxx-xxxx", userInfoResponse -> {
-            Assert.assertTrue(userInfoResponse.isSuccess());
-            lock.countDown();
-        });
+        resource.userInfo(
+            "xxxx-xxxx-xxxx-xxxx",
+            userInfoResponse -> {
+                Assert.assertTrue(userInfoResponse.isSuccess());
+                lock.countDown();
+            }
+        );
 
         Assert.assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
     }
 
     @Test
     public void shouldNotGetUserInfo() throws Exception {
-        stubFor(get(urlEqualTo("/domain/userinfo"))
-                .willReturn(aResponse()
-                        .withStatus(401)));
+        stubFor(get(urlEqualTo("/domain/userinfo")).willReturn(aResponse().withStatus(401)));
 
         final CountDownLatch lock = new CountDownLatch(1);
 
@@ -222,19 +228,20 @@ public class OAuth2AMResourceTest {
 
         resource.doStart();
 
-        resource.userInfo("xxxx-xxxx-xxxx-xxxx", userInfoResponse -> {
-            Assert.assertFalse(userInfoResponse.isSuccess());
-            lock.countDown();
-        });
+        resource.userInfo(
+            "xxxx-xxxx-xxxx-xxxx",
+            userInfoResponse -> {
+                Assert.assertFalse(userInfoResponse.isSuccess());
+                lock.countDown();
+            }
+        );
 
         Assert.assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
     }
 
     @Test
     public void shouldAppendMissingTrailingSlah() throws Exception {
-        stubFor(get(urlEqualTo("/test/domain/userinfo"))
-                .willReturn(aResponse()
-                        .withStatus(401)));
+        stubFor(get(urlEqualTo("/test/domain/userinfo")).willReturn(aResponse().withStatus(401)));
 
         final CountDownLatch lock = new CountDownLatch(1);
 
@@ -243,10 +250,13 @@ public class OAuth2AMResourceTest {
 
         resource.doStart();
 
-        resource.userInfo("xxxx-xxxx-xxxx-xxxx", userInfoResponse -> {
-            Assert.assertFalse(userInfoResponse.isSuccess());
-            lock.countDown();
-        });
+        resource.userInfo(
+            "xxxx-xxxx-xxxx-xxxx",
+            userInfoResponse -> {
+                Assert.assertFalse(userInfoResponse.isSuccess());
+                lock.countDown();
+            }
+        );
 
         Assert.assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
     }
