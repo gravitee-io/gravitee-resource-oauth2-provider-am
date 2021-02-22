@@ -16,11 +16,10 @@
 package io.gravitee.resource.oauth2.am.configuration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.Assert;
-import org.junit.Test;
-
 import java.io.IOException;
 import java.net.URL;
+import org.junit.Assert;
+import org.junit.Test;
 
 /**
  * @author David BRASSELY (david.brassely at graviteesource.com)
@@ -30,16 +29,14 @@ public class OAuth2ResourceConfigurationTest {
 
     @Test
     public void testConfiguration_checkDefaultVersion() throws IOException {
-        OAuth2ResourceConfiguration configuration =
-                load("/io/gravitee/resource/oauth2/am/configuration/configuration1.json");
+        OAuth2ResourceConfiguration configuration = load("/io/gravitee/resource/oauth2/am/configuration/configuration1.json");
 
         Assert.assertEquals(OAuth2ResourceConfiguration.Version.V1_X, configuration.getVersion());
     }
 
     @Test
     public void testConfiguration_checkVersion() throws IOException {
-        OAuth2ResourceConfiguration configuration =
-                load("/io/gravitee/resource/oauth2/am/configuration/configuration2.json");
+        OAuth2ResourceConfiguration configuration = load("/io/gravitee/resource/oauth2/am/configuration/configuration2.json");
 
         Assert.assertEquals(OAuth2ResourceConfiguration.Version.V2_X, configuration.getVersion());
     }

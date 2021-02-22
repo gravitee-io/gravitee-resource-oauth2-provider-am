@@ -34,18 +34,17 @@ import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.ProxyOptions;
 import io.vertx.core.net.ProxyType;
+import java.net.URL;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.core.env.Environment;
-
-import java.net.URL;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
 
 /**
  * @author David BRASSELY (david.brassely at graviteesource.com)
@@ -91,54 +90,53 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
 
         URL introspectionUrl = new URL(configuration().getServerURL());
 
-        int authorizationServerPort = introspectionUrl.getPort() != -1 ? introspectionUrl.getPort() :
-                (HTTPS_SCHEME.equals(introspectionUrl.getProtocol()) ? 443 : 80);
+        int authorizationServerPort = introspectionUrl.getPort() != -1
+            ? introspectionUrl.getPort()
+            : (HTTPS_SCHEME.equals(introspectionUrl.getProtocol()) ? 443 : 80);
 
         // URI.getHost does not support '_' in the name, so we are using an intermediate URL to get the final host
         String authorizationServerHost = introspectionUrl.getHost();
 
-        httpClientOptions = new HttpClientOptions()
+        httpClientOptions =
+            new HttpClientOptions()
                 .setDefaultPort(authorizationServerPort)
                 .setDefaultHost(authorizationServerHost)
                 .setIdleTimeout(60)
                 .setConnectTimeout(10000);
 
-        if(configuration().isUseSystemProxy()) {
+        if (configuration().isUseSystemProxy()) {
             httpClientOptions.setProxyOptions(getSystemProxyOptions());
         }
 
-
         // Use SSL connection if authorization schema is set to HTTPS
         if (HTTPS_SCHEME.equalsIgnoreCase(introspectionUrl.getProtocol())) {
-            httpClientOptions
-                    .setSsl(true)
-                    .setVerifyHost(false)
-                    .setTrustAll(true);
+            httpClientOptions.setSsl(true).setVerifyHost(false).setTrustAll(true);
         }
 
-        introspectionEndpointAuthorization = AUTHORIZATION_HEADER_BASIC_SCHEME +
-                Base64.getEncoder().encodeToString(
-                        (configuration().getClientId() + AUTHORIZATION_HEADER_VALUE_BASE64_SEPARATOR +
-                                configuration().getClientSecret()).getBytes());
+        introspectionEndpointAuthorization =
+            AUTHORIZATION_HEADER_BASIC_SCHEME +
+            Base64
+                .getEncoder()
+                .encodeToString(
+                    (
+                        configuration().getClientId() + AUTHORIZATION_HEADER_VALUE_BASE64_SEPARATOR + configuration().getClientSecret()
+                    ).getBytes()
+                );
 
-        String path = (! introspectionUrl.getPath().isEmpty()) ? introspectionUrl.getPath() : PATH_SEPARATOR;
-        if (! path.endsWith(PATH_SEPARATOR)) {
+        String path = (!introspectionUrl.getPath().isEmpty()) ? introspectionUrl.getPath() : PATH_SEPARATOR;
+        if (!path.endsWith(PATH_SEPARATOR)) {
             path += PATH_SEPARATOR;
         }
 
         // Prepare userinfo and introspection endpoints
         if (configuration().getVersion() == OAuth2ResourceConfiguration.Version.V1_X) {
-            introspectionEndpointURI = path + configuration().getSecurityDomain() +
-                    CHECK_TOKEN_ENDPOINT;
+            introspectionEndpointURI = path + configuration().getSecurityDomain() + CHECK_TOKEN_ENDPOINT;
 
-            userInfoEndpointURI = path + configuration().getSecurityDomain() +
-                    USERINFO_ENDPOINT;
+            userInfoEndpointURI = path + configuration().getSecurityDomain() + USERINFO_ENDPOINT;
         } else {
-            introspectionEndpointURI = path + configuration().getSecurityDomain() +
-                    INTROSPECT_ENDPOINT_V2;
+            introspectionEndpointURI = path + configuration().getSecurityDomain() + INTROSPECT_ENDPOINT_V2;
 
-            userInfoEndpointURI = path + configuration().getSecurityDomain() +
-                    USERINFO_ENDPOINT_V2;
+            userInfoEndpointURI = path + configuration().getSecurityDomain() + USERINFO_ENDPOINT_V2;
         }
 
         userAgent = NodeUtils.userAgent(applicationContext.getBean(Node.class));
@@ -149,19 +147,22 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
     protected void doStop() throws Exception {
         super.doStop();
 
-        httpClients.values().forEach(httpClient -> {
-            try {
-                httpClient.close();
-            } catch (IllegalStateException ise) {
-                logger.warn(ise.getMessage());
-            }
-        });
+        httpClients
+            .values()
+            .forEach(
+                httpClient -> {
+                    try {
+                        httpClient.close();
+                    } catch (IllegalStateException ise) {
+                        logger.warn(ise.getMessage());
+                    }
+                }
+            );
     }
 
     @Override
     public void introspect(String accessToken, Handler<OAuth2Response> responseHandler) {
-        HttpClient httpClient = httpClients.computeIfAbsent(
-                Vertx.currentContext(), context -> vertx.createHttpClient(httpClientOptions));
+        HttpClient httpClient = httpClients.computeIfAbsent(Vertx.currentContext(), context -> vertx.createHttpClient(httpClientOptions));
 
         logger.debug("Introspect access token by requesting {}", introspectionEndpointURI);
 
@@ -173,36 +174,44 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
         request.headers().add(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON);
         request.headers().add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_FORM_URLENCODED);
 
-        request.handler(response -> response.bodyHandler(buffer -> {
-            logger.debug("AM Introspection endpoint returns a response with a {} status code", response.statusCode());
-            if (response.statusCode() == HttpStatusCode.OK_200) {
-                if (configuration().getVersion() == OAuth2ResourceConfiguration.Version.V1_X) {
-                    responseHandler.handle(new OAuth2Response(true, buffer.toString()));
-                } else {
-                    // Introspection Response from AM v2 always returns HTTP 200
-                    // with an "active" boolean indicator of whether or not the presented token is currently active.
-                    // retrieve active indicator
-                    JsonObject jsonObject = buffer.toJsonObject();
-                    boolean active = jsonObject.getBoolean(INTROSPECTION_ACTIVE_INDICATOR, false);
-                    responseHandler.handle(new OAuth2Response(active, (active) ? buffer.toString() : "{\"error\": \"Invalid Access Token\"}"));
-                }
-            } else {
-                responseHandler.handle(new OAuth2Response(false, buffer.toString()));
-            }
-        }));
+        request.handler(
+            response ->
+                response.bodyHandler(
+                    buffer -> {
+                        logger.debug("AM Introspection endpoint returns a response with a {} status code", response.statusCode());
+                        if (response.statusCode() == HttpStatusCode.OK_200) {
+                            if (configuration().getVersion() == OAuth2ResourceConfiguration.Version.V1_X) {
+                                responseHandler.handle(new OAuth2Response(true, buffer.toString()));
+                            } else {
+                                // Introspection Response from AM v2 always returns HTTP 200
+                                // with an "active" boolean indicator of whether or not the presented token is currently active.
+                                // retrieve active indicator
+                                JsonObject jsonObject = buffer.toJsonObject();
+                                boolean active = jsonObject.getBoolean(INTROSPECTION_ACTIVE_INDICATOR, false);
+                                responseHandler.handle(
+                                    new OAuth2Response(active, (active) ? buffer.toString() : "{\"error\": \"Invalid Access Token\"}")
+                                );
+                            }
+                        } else {
+                            responseHandler.handle(new OAuth2Response(false, buffer.toString()));
+                        }
+                    }
+                )
+        );
 
-        request.exceptionHandler(event -> {
-            logger.error("An error occurs while checking access_token", event);
-            responseHandler.handle(new OAuth2Response(false, event.getMessage()));
-        });
+        request.exceptionHandler(
+            event -> {
+                logger.error("An error occurs while checking access_token", event);
+                responseHandler.handle(new OAuth2Response(false, event.getMessage()));
+            }
+        );
 
         request.end("token=" + accessToken);
     }
 
     @Override
     public void userInfo(String accessToken, Handler<UserInfoResponse> responseHandler) {
-        HttpClient httpClient = httpClients.computeIfAbsent(
-                Vertx.currentContext(), context -> vertx.createHttpClient(httpClientOptions));
+        HttpClient httpClient = httpClients.computeIfAbsent(Vertx.currentContext(), context -> vertx.createHttpClient(httpClientOptions));
 
         logger.debug("Get userinfo from {}", userInfoEndpointURI);
 
@@ -213,20 +222,27 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
         request.headers().add(HttpHeaders.AUTHORIZATION, AUTHORIZATION_HEADER_BEARER_SCHEME + accessToken);
         request.headers().add(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON);
 
-        request.handler(response -> response.bodyHandler(buffer -> {
-            logger.debug("Userinfo endpoint returns a response with a {} status code", response.statusCode());
+        request.handler(
+            response ->
+                response.bodyHandler(
+                    buffer -> {
+                        logger.debug("Userinfo endpoint returns a response with a {} status code", response.statusCode());
 
-            if (response.statusCode() == HttpStatusCode.OK_200) {
-                responseHandler.handle(new UserInfoResponse(true, buffer.toString()));
-            } else {
-                responseHandler.handle(new UserInfoResponse(false, buffer.toString()));
+                        if (response.statusCode() == HttpStatusCode.OK_200) {
+                            responseHandler.handle(new UserInfoResponse(true, buffer.toString()));
+                        } else {
+                            responseHandler.handle(new UserInfoResponse(false, buffer.toString()));
+                        }
+                    }
+                )
+        );
+
+        request.exceptionHandler(
+            event -> {
+                logger.error("An error occurs while getting userinfo from access_token", event);
+                responseHandler.handle(new UserInfoResponse(false, event.getMessage()));
             }
-        }));
-
-        request.exceptionHandler(event -> {
-            logger.error("An error occurs while getting userinfo from access_token", event);
-            responseHandler.handle(new UserInfoResponse(false, event.getMessage()));
-        });
+        );
 
         request.end();
     }
@@ -267,7 +283,11 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
         if (errors.length() == 0) {
             return proxyOptions;
         } else {
-            logger.warn("AMResource requires a system proxy to be defined to call [{}] but some configurations are missing or not well defined: {}", configuration().getServerURL(), errors);
+            logger.warn(
+                "AMResource requires a system proxy to be defined to call [{}] but some configurations are missing or not well defined: {}",
+                configuration().getServerURL(),
+                errors
+            );
             logger.warn("Ignoring system proxy");
             return null;
         }

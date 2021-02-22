@@ -96,6 +96,6 @@ public class OAuth2ResourceConfiguration implements ResourceConfiguration {
     public enum Version {
         V1_X,
         V2_X,
-        V3_X
+        V3_X,
     }
 }
