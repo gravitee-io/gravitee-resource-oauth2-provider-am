@@ -26,11 +26,10 @@ import io.gravitee.resource.oauth2.am.configuration.OAuth2ResourceConfiguration;
 import io.gravitee.resource.oauth2.api.OAuth2Resource;
 import io.gravitee.resource.oauth2.api.OAuth2Response;
 import io.gravitee.resource.oauth2.api.openid.UserInfoResponse;
+import io.vertx.core.AsyncResult;
 import io.vertx.core.Context;
 import io.vertx.core.Vertx;
-import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.HttpClientOptions;
-import io.vertx.core.http.HttpClientRequest;
+import io.vertx.core.http.*;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.ProxyOptions;
 import io.vertx.core.net.ProxyType;
@@ -166,47 +165,85 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
 
         logger.debug("Introspect access token by requesting {}", introspectionEndpointURI);
 
-        HttpClientRequest request = httpClient.post(introspectionEndpointURI);
-        request.setTimeout(30000L);
-        request.headers().add(HttpHeaders.USER_AGENT, userAgent);
-        request.headers().add("X-Gravitee-Request-Id", UUID.toString(UUID.random()));
-        request.headers().add(HttpHeaders.AUTHORIZATION, introspectionEndpointAuthorization);
-        request.headers().add(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON);
-        request.headers().add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_FORM_URLENCODED);
+        final RequestOptions reqOptions = new RequestOptions()
+            .setMethod(HttpMethod.POST)
+            .setURI(introspectionEndpointURI)
+            .putHeader(HttpHeaders.USER_AGENT, userAgent)
+            .putHeader("X-Gravitee-Request-Id", UUID.toString(UUID.random()))
+            .putHeader(HttpHeaders.AUTHORIZATION, introspectionEndpointAuthorization)
+            .putHeader(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON)
+            .putHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_FORM_URLENCODED)
+            .setTimeout(30000L);
 
-        request.handler(
-            response ->
-                response.bodyHandler(
-                    buffer -> {
-                        logger.debug("AM Introspection endpoint returns a response with a {} status code", response.statusCode());
-                        if (response.statusCode() == HttpStatusCode.OK_200) {
-                            if (configuration().getVersion() == OAuth2ResourceConfiguration.Version.V1_X) {
-                                responseHandler.handle(new OAuth2Response(true, buffer.toString()));
-                            } else {
-                                // Introspection Response from AM v2 always returns HTTP 200
-                                // with an "active" boolean indicator of whether or not the presented token is currently active.
-                                // retrieve active indicator
-                                JsonObject jsonObject = buffer.toJsonObject();
-                                boolean active = jsonObject.getBoolean(INTROSPECTION_ACTIVE_INDICATOR, false);
-                                responseHandler.handle(
-                                    new OAuth2Response(active, (active) ? buffer.toString() : "{\"error\": \"Invalid Access Token\"}")
-                                );
-                            }
-                        } else {
-                            responseHandler.handle(new OAuth2Response(false, buffer.toString()));
-                        }
+        httpClient
+            .request(reqOptions)
+            .onFailure(
+                new io.vertx.core.Handler<Throwable>() {
+                    @Override
+                    public void handle(Throwable event) {
+                        logger.error("An error occurs while checking access token", event);
+                        responseHandler.handle(new OAuth2Response(false, event.getMessage()));
                     }
-                )
-        );
-
-        request.exceptionHandler(
-            event -> {
-                logger.error("An error occurs while checking access_token", event);
-                responseHandler.handle(new OAuth2Response(false, event.getMessage()));
-            }
-        );
-
-        request.end("token=" + accessToken);
+                }
+            )
+            .onSuccess(
+                new io.vertx.core.Handler<HttpClientRequest>() {
+                    @Override
+                    public void handle(HttpClientRequest request) {
+                        request
+                            .response(
+                                new io.vertx.core.Handler<AsyncResult<HttpClientResponse>>() {
+                                    @Override
+                                    public void handle(AsyncResult<HttpClientResponse> asyncResponse) {
+                                        if (asyncResponse.failed()) {
+                                            logger.error("An error occurs while checking access token", asyncResponse.cause());
+                                            responseHandler.handle(new OAuth2Response(false, asyncResponse.cause().getMessage()));
+                                        } else {
+                                            final HttpClientResponse response = asyncResponse.result();
+                                            logger.debug(
+                                                "AM Introspection endpoint returns a response with a {} status code",
+                                                response.statusCode()
+                                            );
+                                            response.bodyHandler(
+                                                buffer -> {
+                                                    if (response.statusCode() == HttpStatusCode.OK_200) {
+                                                        if (configuration().getVersion() == OAuth2ResourceConfiguration.Version.V1_X) {
+                                                            responseHandler.handle(new OAuth2Response(true, buffer.toString()));
+                                                        } else {
+                                                            // Introspection Response from AM v2 always returns HTTP 200
+                                                            // with an "active" boolean indicator of whether or not the presented token is currently active.
+                                                            // retrieve active indicator
+                                                            JsonObject jsonObject = buffer.toJsonObject();
+                                                            boolean active = jsonObject.getBoolean(INTROSPECTION_ACTIVE_INDICATOR, false);
+                                                            responseHandler.handle(
+                                                                new OAuth2Response(
+                                                                    active,
+                                                                    (active) ? buffer.toString() : "{\"error\": \"Invalid Access Token\"}"
+                                                                )
+                                                            );
+                                                        }
+                                                    } else {
+                                                        responseHandler.handle(new OAuth2Response(false, buffer.toString()));
+                                                    }
+                                                }
+                                            );
+                                        }
+                                    }
+                                }
+                            )
+                            .exceptionHandler(
+                                new io.vertx.core.Handler<Throwable>() {
+                                    @Override
+                                    public void handle(Throwable event) {
+                                        logger.error("An error occurs while checking access token", event);
+                                        responseHandler.handle(new OAuth2Response(false, event.getMessage()));
+                                    }
+                                }
+                            )
+                            .end("token=" + accessToken);
+                    }
+                }
+            );
     }
 
     @Override
@@ -215,36 +252,70 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
 
         logger.debug("Get userinfo from {}", userInfoEndpointURI);
 
-        HttpClientRequest request = httpClient.get(userInfoEndpointURI);
+        final RequestOptions reqOptions = new RequestOptions()
+            .setMethod(HttpMethod.GET)
+            .setURI(userInfoEndpointURI)
+            .putHeader(HttpHeaders.USER_AGENT, userAgent)
+            .putHeader("X-Gravitee-Request-Id", UUID.toString(UUID.random()))
+            .putHeader(HttpHeaders.AUTHORIZATION, AUTHORIZATION_HEADER_BEARER_SCHEME + accessToken)
+            .putHeader(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON);
 
-        request.headers().add(HttpHeaders.USER_AGENT, userAgent);
-        request.headers().add("X-Gravitee-Request-Id", UUID.toString(UUID.random()));
-        request.headers().add(HttpHeaders.AUTHORIZATION, AUTHORIZATION_HEADER_BEARER_SCHEME + accessToken);
-        request.headers().add(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON);
-
-        request.handler(
-            response ->
-                response.bodyHandler(
-                    buffer -> {
-                        logger.debug("Userinfo endpoint returns a response with a {} status code", response.statusCode());
-
-                        if (response.statusCode() == HttpStatusCode.OK_200) {
-                            responseHandler.handle(new UserInfoResponse(true, buffer.toString()));
-                        } else {
-                            responseHandler.handle(new UserInfoResponse(false, buffer.toString()));
-                        }
+        httpClient
+            .request(reqOptions)
+            .onFailure(
+                new io.vertx.core.Handler<Throwable>() {
+                    @Override
+                    public void handle(Throwable event) {
+                        logger.error("An error occurs while getting userinfo from access token", event);
+                        responseHandler.handle(new UserInfoResponse(false, event.getMessage()));
                     }
-                )
-        );
+                }
+            )
+            .onSuccess(
+                new io.vertx.core.Handler<HttpClientRequest>() {
+                    @Override
+                    public void handle(HttpClientRequest request) {
+                        request
+                            .response(
+                                new io.vertx.core.Handler<AsyncResult<HttpClientResponse>>() {
+                                    @Override
+                                    public void handle(AsyncResult<HttpClientResponse> asyncResponse) {
+                                        if (asyncResponse.failed()) {
+                                            logger.error("An error occurs while introspecting access token", asyncResponse.cause());
+                                            responseHandler.handle(new UserInfoResponse(false, asyncResponse.cause().getMessage()));
+                                        } else {
+                                            final HttpClientResponse response = asyncResponse.result();
+                                            response.bodyHandler(
+                                                buffer -> {
+                                                    logger.debug(
+                                                        "Userinfo endpoint returns a response with a {} status code",
+                                                        response.statusCode()
+                                                    );
 
-        request.exceptionHandler(
-            event -> {
-                logger.error("An error occurs while getting userinfo from access_token", event);
-                responseHandler.handle(new UserInfoResponse(false, event.getMessage()));
-            }
-        );
-
-        request.end();
+                                                    if (response.statusCode() == HttpStatusCode.OK_200) {
+                                                        responseHandler.handle(new UserInfoResponse(true, buffer.toString()));
+                                                    } else {
+                                                        responseHandler.handle(new UserInfoResponse(false, buffer.toString()));
+                                                    }
+                                                }
+                                            );
+                                        }
+                                    }
+                                }
+                            )
+                            .exceptionHandler(
+                                new io.vertx.core.Handler<Throwable>() {
+                                    @Override
+                                    public void handle(Throwable event) {
+                                        logger.error("An error occurs while introspecting access token", event);
+                                        responseHandler.handle(new UserInfoResponse(false, event.getMessage()));
+                                    }
+                                }
+                            )
+                            .end();
+                    }
+                }
+            );
     }
 
     @Override
