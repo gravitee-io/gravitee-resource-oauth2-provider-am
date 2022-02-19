@@ -148,15 +148,13 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
 
         httpClients
             .values()
-            .forEach(
-                httpClient -> {
-                    try {
-                        httpClient.close();
-                    } catch (IllegalStateException ise) {
-                        logger.warn(ise.getMessage());
-                    }
+            .forEach(httpClient -> {
+                try {
+                    httpClient.close();
+                } catch (IllegalStateException ise) {
+                    logger.warn(ise.getMessage());
                 }
-            );
+            });
     }
 
     @Override
@@ -204,29 +202,27 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
                                                 "AM Introspection endpoint returns a response with a {} status code",
                                                 response.statusCode()
                                             );
-                                            response.bodyHandler(
-                                                buffer -> {
-                                                    if (response.statusCode() == HttpStatusCode.OK_200) {
-                                                        if (configuration().getVersion() == OAuth2ResourceConfiguration.Version.V1_X) {
-                                                            responseHandler.handle(new OAuth2Response(true, buffer.toString()));
-                                                        } else {
-                                                            // Introspection Response from AM v2 always returns HTTP 200
-                                                            // with an "active" boolean indicator of whether or not the presented token is currently active.
-                                                            // retrieve active indicator
-                                                            JsonObject jsonObject = buffer.toJsonObject();
-                                                            boolean active = jsonObject.getBoolean(INTROSPECTION_ACTIVE_INDICATOR, false);
-                                                            responseHandler.handle(
-                                                                new OAuth2Response(
-                                                                    active,
-                                                                    (active) ? buffer.toString() : "{\"error\": \"Invalid Access Token\"}"
-                                                                )
-                                                            );
-                                                        }
+                                            response.bodyHandler(buffer -> {
+                                                if (response.statusCode() == HttpStatusCode.OK_200) {
+                                                    if (configuration().getVersion() == OAuth2ResourceConfiguration.Version.V1_X) {
+                                                        responseHandler.handle(new OAuth2Response(true, buffer.toString()));
                                                     } else {
-                                                        responseHandler.handle(new OAuth2Response(false, buffer.toString()));
+                                                        // Introspection Response from AM v2 always returns HTTP 200
+                                                        // with an "active" boolean indicator of whether or not the presented token is currently active.
+                                                        // retrieve active indicator
+                                                        JsonObject jsonObject = buffer.toJsonObject();
+                                                        boolean active = jsonObject.getBoolean(INTROSPECTION_ACTIVE_INDICATOR, false);
+                                                        responseHandler.handle(
+                                                            new OAuth2Response(
+                                                                active,
+                                                                (active) ? buffer.toString() : "{\"error\": \"Invalid Access Token\"}"
+                                                            )
+                                                        );
                                                     }
+                                                } else {
+                                                    responseHandler.handle(new OAuth2Response(false, buffer.toString()));
                                                 }
-                                            );
+                                            });
                                         }
                                     }
                                 }
@@ -285,20 +281,18 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
                                             responseHandler.handle(new UserInfoResponse(false, asyncResponse.cause().getMessage()));
                                         } else {
                                             final HttpClientResponse response = asyncResponse.result();
-                                            response.bodyHandler(
-                                                buffer -> {
-                                                    logger.debug(
-                                                        "Userinfo endpoint returns a response with a {} status code",
-                                                        response.statusCode()
-                                                    );
+                                            response.bodyHandler(buffer -> {
+                                                logger.debug(
+                                                    "Userinfo endpoint returns a response with a {} status code",
+                                                    response.statusCode()
+                                                );
 
-                                                    if (response.statusCode() == HttpStatusCode.OK_200) {
-                                                        responseHandler.handle(new UserInfoResponse(true, buffer.toString()));
-                                                    } else {
-                                                        responseHandler.handle(new UserInfoResponse(false, buffer.toString()));
-                                                    }
+                                                if (response.statusCode() == HttpStatusCode.OK_200) {
+                                                    responseHandler.handle(new UserInfoResponse(true, buffer.toString()));
+                                                } else {
+                                                    responseHandler.handle(new UserInfoResponse(false, buffer.toString()));
                                                 }
-                                            );
+                                            });
                                         }
                                     }
                                 }
