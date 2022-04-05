@@ -38,6 +38,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
@@ -70,7 +71,7 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
     private static final String PATH_SEPARATOR = "/";
     private ApplicationContext applicationContext;
 
-    private final Map<Context, HttpClient> httpClients = new HashMap<>();
+    private final Map<Thread, HttpClient> httpClients = new ConcurrentHashMap<>();
 
     private HttpClientOptions httpClientOptions;
 
@@ -159,7 +160,7 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
 
     @Override
     public void introspect(String accessToken, Handler<OAuth2Response> responseHandler) {
-        HttpClient httpClient = httpClients.computeIfAbsent(Vertx.currentContext(), context -> vertx.createHttpClient(httpClientOptions));
+        HttpClient httpClient = httpClients.computeIfAbsent(Thread.currentThread(), context -> vertx.createHttpClient(httpClientOptions));
 
         logger.debug("Introspect access token by requesting {}", introspectionEndpointURI);
 
@@ -244,7 +245,7 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
 
     @Override
     public void userInfo(String accessToken, Handler<UserInfoResponse> responseHandler) {
-        HttpClient httpClient = httpClients.computeIfAbsent(Vertx.currentContext(), context -> vertx.createHttpClient(httpClientOptions));
+        HttpClient httpClient = httpClients.computeIfAbsent(Thread.currentThread(), context -> vertx.createHttpClient(httpClientOptions));
 
         logger.debug("Get userinfo from {}", userInfoEndpointURI);
 
