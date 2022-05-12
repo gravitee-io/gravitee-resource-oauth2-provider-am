@@ -15,36 +15,34 @@
  */
 package io.gravitee.resource.oauth2.am;
 
+import static io.gravitee.common.util.VertxProxyOptionsUtils.*;
+
 import io.gravitee.common.http.HttpHeaders;
 import io.gravitee.common.http.HttpStatusCode;
 import io.gravitee.common.http.MediaType;
 import io.gravitee.common.utils.UUID;
 import io.gravitee.gateway.api.handler.Handler;
 import io.gravitee.node.api.Node;
+import io.gravitee.node.api.configuration.Configuration;
 import io.gravitee.node.api.utils.NodeUtils;
+import io.gravitee.node.container.spring.SpringEnvironmentConfiguration;
 import io.gravitee.resource.oauth2.am.configuration.OAuth2ResourceConfiguration;
 import io.gravitee.resource.oauth2.api.OAuth2Resource;
 import io.gravitee.resource.oauth2.api.OAuth2Response;
 import io.gravitee.resource.oauth2.api.openid.UserInfoResponse;
 import io.vertx.core.AsyncResult;
-import io.vertx.core.Context;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.*;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.net.ProxyOptions;
-import io.vertx.core.net.ProxyType;
 import java.net.URL;
 import java.util.Base64;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
-import org.springframework.core.env.Environment;
 
 /**
  * @author David BRASSELY (david.brassely at graviteesource.com)
@@ -105,7 +103,17 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
                 .setConnectTimeout(10000);
 
         if (configuration().isUseSystemProxy()) {
-            httpClientOptions.setProxyOptions(getSystemProxyOptions());
+            try {
+                Configuration nodeConfig = new SpringEnvironmentConfiguration(applicationContext.getEnvironment());
+                setSystemProxy(httpClientOptions, nodeConfig);
+            } catch (IllegalStateException e) {
+                logger.warn(
+                    "AMResource requires a system proxy to be defined to call [{}] but some configurations are missing or not well defined: {}",
+                    configuration().getServerURL(),
+                    e.getMessage()
+                );
+                logger.warn("Ignoring system proxy");
+            }
         }
 
         // Use SSL connection if authorization schema is set to HTTPS
@@ -316,47 +324,6 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
     @Override
     public String getUserClaim() {
         return configuration().getUserClaim();
-    }
-
-    private ProxyOptions getSystemProxyOptions() {
-        Environment environment = applicationContext.getEnvironment();
-
-        StringBuilder errors = new StringBuilder();
-        ProxyOptions proxyOptions = new ProxyOptions();
-
-        // System proxy must be well configured. Check that this is the case.
-        if (environment.containsProperty("system.proxy.host")) {
-            proxyOptions.setHost(environment.getProperty("system.proxy.host"));
-        } else {
-            errors.append("'system.proxy.host' ");
-        }
-
-        try {
-            proxyOptions.setPort(Integer.parseInt(Objects.requireNonNull(environment.getProperty("system.proxy.port"))));
-        } catch (Exception e) {
-            errors.append("'system.proxy.port' [").append(environment.getProperty("system.proxy.port")).append("] ");
-        }
-
-        try {
-            proxyOptions.setType(ProxyType.valueOf(environment.getProperty("system.proxy.type")));
-        } catch (Exception e) {
-            errors.append("'system.proxy.type' [").append(environment.getProperty("system.proxy.type")).append("] ");
-        }
-
-        proxyOptions.setUsername(environment.getProperty("system.proxy.username"));
-        proxyOptions.setPassword(environment.getProperty("system.proxy.password"));
-
-        if (errors.length() == 0) {
-            return proxyOptions;
-        } else {
-            logger.warn(
-                "AMResource requires a system proxy to be defined to call [{}] but some configurations are missing or not well defined: {}",
-                configuration().getServerURL(),
-                errors
-            );
-            logger.warn("Ignoring system proxy");
-            return null;
-        }
     }
 
     @Override
