@@ -131,6 +131,7 @@ public class OAuth2AMResourceTest {
             accessToken,
             oAuth2Response -> {
                 Assert.assertFalse(oAuth2Response.isSuccess());
+                Assert.assertEquals("An error occurs while checking access token", oAuth2Response.getPayload());
                 lock.countDown();
             }
         );
@@ -155,6 +156,31 @@ public class OAuth2AMResourceTest {
             accessToken,
             oAuth2Response -> {
                 Assert.assertFalse(oAuth2Response.isSuccess());
+                lock.countDown();
+            }
+        );
+
+        Assert.assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
+    }
+
+    @Test
+    public void shouldNotValidateAccessToken_v2_not_200() throws Exception {
+        String accessToken = "xxxx-xxxx-xxxx-xxxx";
+        stubFor(post(urlEqualTo("/domain/oauth/introspect")).willReturn(aResponse().withStatus(401)));
+
+        final CountDownLatch lock = new CountDownLatch(1);
+
+        Mockito.when(configuration.getSecurityDomain()).thenReturn("domain");
+        Mockito.when(configuration.getVersion()).thenReturn(OAuth2ResourceConfiguration.Version.V2_X);
+        Mockito.when(configuration.getServerURL()).thenReturn("http://localhost:" + wireMockRule.port());
+
+        resource.doStart();
+
+        resource.introspect(
+            accessToken,
+            oAuth2Response -> {
+                Assert.assertFalse(oAuth2Response.isSuccess());
+                Assert.assertEquals("An error occurs while checking access token", oAuth2Response.getPayload());
                 lock.countDown();
             }
         );
