@@ -258,6 +258,7 @@ public class OAuth2AMResourceTest {
             "xxxx-xxxx-xxxx-xxxx",
             userInfoResponse -> {
                 Assert.assertFalse(userInfoResponse.isSuccess());
+                Assert.assertEquals("An error occurs while getting userinfo from access token", userInfoResponse.getPayload());
                 lock.countDown();
             }
         );
@@ -280,6 +281,7 @@ public class OAuth2AMResourceTest {
             "xxxx-xxxx-xxxx-xxxx",
             userInfoResponse -> {
                 Assert.assertFalse(userInfoResponse.isSuccess());
+                Assert.assertEquals("An error occurs while getting userinfo from access token", userInfoResponse.getPayload());
                 lock.countDown();
             }
         );
