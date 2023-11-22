@@ -282,7 +282,7 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
                     @Override
                     public void handle(Throwable event) {
                         logger.error("An error occurs while getting userinfo from access token", event);
-                        responseHandler.handle(new UserInfoResponse(false, event.getMessage()));
+                        responseHandler.handle(new UserInfoResponse(event));
                     }
                 }
             )
@@ -296,8 +296,8 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
                                     @Override
                                     public void handle(AsyncResult<HttpClientResponse> asyncResponse) {
                                         if (asyncResponse.failed()) {
-                                            logger.error("An error occurs while introspecting access token", asyncResponse.cause());
-                                            responseHandler.handle(new UserInfoResponse(false, asyncResponse.cause().getMessage()));
+                                            logger.error("An error occurs while getting userinfo from access token", asyncResponse.cause());
+                                            responseHandler.handle(new UserInfoResponse(asyncResponse.cause()));
                                         } else {
                                             final HttpClientResponse response = asyncResponse.result();
                                             response.bodyHandler(buffer -> {
@@ -309,7 +309,18 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
                                                 if (response.statusCode() == HttpStatusCode.OK_200) {
                                                     responseHandler.handle(new UserInfoResponse(true, buffer.toString()));
                                                 } else {
-                                                    responseHandler.handle(new UserInfoResponse(false, buffer.toString()));
+                                                    logger.error(
+                                                        "An error occurs while getting userinfo from access token. Request ends with status {}: {}",
+                                                        response.statusCode(),
+                                                        buffer.toString()
+                                                    );
+                                                    responseHandler.handle(
+                                                        new UserInfoResponse(
+                                                            new OAuth2ResourceException(
+                                                                "An error occurs while getting userinfo from access token"
+                                                            )
+                                                        )
+                                                    );
                                                 }
                                             });
                                         }
@@ -320,8 +331,8 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
                                 new io.vertx.core.Handler<Throwable>() {
                                     @Override
                                     public void handle(Throwable event) {
-                                        logger.error("An error occurs while introspecting access token", event);
-                                        responseHandler.handle(new UserInfoResponse(false, event.getMessage()));
+                                        logger.error("An error occurs while getting userinfo from access token", event);
+                                        responseHandler.handle(new UserInfoResponse(event));
                                     }
                                 }
                             )
