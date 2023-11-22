@@ -28,6 +28,7 @@ import io.gravitee.node.api.utils.NodeUtils;
 import io.gravitee.node.container.spring.SpringEnvironmentConfiguration;
 import io.gravitee.resource.oauth2.am.configuration.OAuth2ResourceConfiguration;
 import io.gravitee.resource.oauth2.api.OAuth2Resource;
+import io.gravitee.resource.oauth2.api.OAuth2ResourceException;
 import io.gravitee.resource.oauth2.api.OAuth2Response;
 import io.gravitee.resource.oauth2.api.openid.UserInfoResponse;
 import io.vertx.core.AsyncResult;
@@ -189,7 +190,7 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
                     @Override
                     public void handle(Throwable event) {
                         logger.error("An error occurs while checking access token", event);
-                        responseHandler.handle(new OAuth2Response(false, event.getMessage()));
+                        responseHandler.handle(new OAuth2Response(event));
                     }
                 }
             )
@@ -204,7 +205,7 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
                                     public void handle(AsyncResult<HttpClientResponse> asyncResponse) {
                                         if (asyncResponse.failed()) {
                                             logger.error("An error occurs while checking access token", asyncResponse.cause());
-                                            responseHandler.handle(new OAuth2Response(false, asyncResponse.cause().getMessage()));
+                                            responseHandler.handle(new OAuth2Response(asyncResponse.cause()));
                                         } else {
                                             final HttpClientResponse response = asyncResponse.result();
                                             logger.debug(
@@ -229,7 +230,16 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
                                                         );
                                                     }
                                                 } else {
-                                                    responseHandler.handle(new OAuth2Response(false, buffer.toString()));
+                                                    logger.error(
+                                                        "An error occurs while checking access token. Request ends with status {}: {}",
+                                                        response.statusCode(),
+                                                        buffer.toString()
+                                                    );
+                                                    responseHandler.handle(
+                                                        new OAuth2Response(
+                                                            new OAuth2ResourceException("An error occurs while checking access token")
+                                                        )
+                                                    );
                                                 }
                                             });
                                         }
@@ -241,7 +251,7 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
                                     @Override
                                     public void handle(Throwable event) {
                                         logger.error("An error occurs while checking access token", event);
-                                        responseHandler.handle(new OAuth2Response(false, event.getMessage()));
+                                        responseHandler.handle(new OAuth2Response(event));
                                     }
                                 }
                             )
