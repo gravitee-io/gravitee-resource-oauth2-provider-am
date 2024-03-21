@@ -1,3 +1,10 @@
+## [2.0.2](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/compare/2.0.1...2.0.2) (2024-03-21)
+
+
+### Bug Fixes
+
+* **deps:** update dependency io.gravitee.gateway:gravitee-gateway-api to v1.47.1 ([f58a2cc](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/commit/f58a2cc6e015d69b65370ecc8ef746bee67a3246))
+
 ## [2.0.1](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/compare/2.0.0...2.0.1) (2023-11-23)
 
 
