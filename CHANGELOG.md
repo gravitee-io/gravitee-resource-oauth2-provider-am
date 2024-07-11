@@ -1,3 +1,10 @@
+# [2.1.0](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/compare/2.0.2...2.1.0) (2024-07-11)
+
+
+### Features
+
+* rework schema-form to use new GioJsonSchema Ui component ([ea3a932](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/commit/ea3a93244adbc8cead964bf9e9be2269e76d5f38))
+
 ## [2.0.2](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/compare/2.0.1...2.0.2) (2024-03-21)
 
 
