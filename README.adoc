@@ -18,7 +18,8 @@ Management instance.
 |===
 |Plugin version | APIM version
 
-|2.x and upper                  | 3.18.x to latest
+|3.0 and upper                  | 3.18.x to 4.3.X
+|2.0 and upper                  | 3.18.x to 4.3.X
 |1.14.x and upper               | 3.10.x to 3.17.x
 |Up to 1.13.x                   | Up to 3.9.x
 |===
