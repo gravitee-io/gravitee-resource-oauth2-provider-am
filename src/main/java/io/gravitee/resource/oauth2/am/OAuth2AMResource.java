@@ -15,8 +15,6 @@
  */
 package io.gravitee.resource.oauth2.am;
 
-import static io.gravitee.common.util.VertxProxyOptionsUtils.*;
-
 import io.gravitee.common.http.HttpHeaders;
 import io.gravitee.common.http.HttpStatusCode;
 import io.gravitee.common.http.MediaType;
@@ -26,6 +24,7 @@ import io.gravitee.node.api.Node;
 import io.gravitee.node.api.configuration.Configuration;
 import io.gravitee.node.api.utils.NodeUtils;
 import io.gravitee.node.container.spring.SpringEnvironmentConfiguration;
+import io.gravitee.node.vertx.proxy.VertxProxyOptionsUtils;
 import io.gravitee.resource.oauth2.am.configuration.OAuth2ResourceConfiguration;
 import io.gravitee.resource.oauth2.api.OAuth2Resource;
 import io.gravitee.resource.oauth2.api.OAuth2ResourceException;
@@ -106,7 +105,7 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
         if (configuration().isUseSystemProxy()) {
             try {
                 Configuration nodeConfig = new SpringEnvironmentConfiguration(applicationContext.getEnvironment());
-                setSystemProxy(httpClientOptions, nodeConfig);
+                httpClientOptions.setProxyOptions(VertxProxyOptionsUtils.buildProxyOptions(nodeConfig));
             } catch (IllegalStateException e) {
                 logger.warn(
                     "AMResource requires a system proxy to be defined to call [{}] but some configurations are missing or not well defined: {}",
