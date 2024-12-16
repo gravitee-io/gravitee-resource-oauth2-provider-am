@@ -23,8 +23,10 @@ import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import io.gravitee.common.http.HttpHeaders;
 import io.gravitee.common.http.MediaType;
 import io.gravitee.node.api.Node;
+import io.gravitee.resource.api.AbstractConfigurableResource;
 import io.gravitee.resource.oauth2.am.configuration.OAuth2ResourceConfiguration;
 import io.vertx.core.Vertx;
+import java.lang.reflect.Field;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.junit.Assert;
@@ -32,7 +34,6 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
@@ -57,15 +58,22 @@ public class OAuth2AMResourceTest {
     @Mock
     private Node node;
 
-    @InjectMocks
     private OAuth2AMResource resource;
 
     @Before
-    public void init() {
-        initMocks(this);
+    public void init() throws Exception {
+        resource = new OAuth2AMResource();
+        resource.setApplicationContext(applicationContext);
+
+        Field configurationField = AbstractConfigurableResource.class.getDeclaredField("configuration");
+        configurationField.setAccessible(true);
+        configurationField.set(resource, configuration);
+
         Mockito.when(applicationContext.getBean(Vertx.class)).thenReturn(Vertx.vertx());
         Mockito.when(applicationContext.getBean(Node.class)).thenReturn(node);
         Mockito.when(configuration.getVersion()).thenReturn(new OAuth2ResourceConfiguration().getVersion());
+        Mockito.when(configuration.getSecurityDomain()).thenReturn("domain");
+        Mockito.when(configuration.getServerURL()).thenReturn("http://localhost:" + wireMockRule.port());
     }
 
     @Test
@@ -75,14 +83,10 @@ public class OAuth2AMResourceTest {
 
         final CountDownLatch lock = new CountDownLatch(1);
 
-        Mockito.when(configuration.getSecurityDomain()).thenReturn("domain");
-        Mockito.when(configuration.getServerURL()).thenReturn("http://localhost:" + wireMockRule.port());
-
         resource.doStart();
-
         resource.introspect(accessToken, oAuth2Response -> lock.countDown());
 
-        Assert.assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
+        Assert.assertTrue(lock.await(10000, TimeUnit.MILLISECONDS));
 
         verify(
             postRequestedFor(urlEqualTo("/domain/oauth/check_token"))
