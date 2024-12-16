@@ -1,7 +1,7 @@
 {
-  "clientId": "my-client",
-  "clientSecret": "f2ddb55e-30b5-4a45-9db5-5e30b52a4574",
-  "securityDomain": "my-security",
-  "serverURL": "https://graviteeio_access_management",
-  "version": "V2_X"
+    "clientId": "my-client",
+    "clientSecret": "f2ddb55e-30b5-4a45-9db5-5e30b52a4574",
+    "securityDomain": "my-security",
+    "serverURL": "https://graviteeio_access_management",
+    "version": "V2_X"
 }
