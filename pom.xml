@@ -44,7 +44,7 @@
         <maven-assembly-plugin.version>2.5.5</maven-assembly-plugin.version>
         <!-- Property used by the publication job in CI-->
         <publish-folder-path>graviteeio-apim/plugins/resources</publish-folder-path>
-        <wiremock.version>3.10.0</wiremock.version>
+        <wiremock.version>3.11.0</wiremock.version>
     </properties>
 
     <dependencyManagement>
