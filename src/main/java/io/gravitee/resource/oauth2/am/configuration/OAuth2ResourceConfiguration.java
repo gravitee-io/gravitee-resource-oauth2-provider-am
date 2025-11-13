@@ -15,6 +15,7 @@
  */
 package io.gravitee.resource.oauth2.am.configuration;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.gravitee.resource.api.ResourceConfiguration;
 
 /**
@@ -36,6 +37,9 @@ public class OAuth2ResourceConfiguration implements ResourceConfiguration {
     private String userClaim;
 
     private boolean useSystemProxy;
+
+    @JsonProperty("http")
+    private HttpClientOptions httpClientOptions = new HttpClientOptions();
 
     public String getServerURL() {
         return serverURL;
@@ -91,6 +95,14 @@ public class OAuth2ResourceConfiguration implements ResourceConfiguration {
 
     public void setUseSystemProxy(boolean useSystemProxy) {
         this.useSystemProxy = useSystemProxy;
+    }
+
+    public HttpClientOptions getHttpClientOptions() {
+        return httpClientOptions;
+    }
+
+    public void setHttpClientOptions(HttpClientOptions httpClientOptions) {
+        this.httpClientOptions = httpClientOptions;
     }
 
     public enum Version {
