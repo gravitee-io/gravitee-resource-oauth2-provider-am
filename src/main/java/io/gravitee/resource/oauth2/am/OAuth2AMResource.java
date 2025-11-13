@@ -99,6 +99,7 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
             new HttpClientOptions()
                 .setDefaultPort(authorizationServerPort)
                 .setDefaultHost(authorizationServerHost)
+                .setMaxPoolSize(configuration().getHttpClientOptions().getMaxConcurrentConnections())
                 .setIdleTimeout(60)
                 .setConnectTimeout(10000);
 

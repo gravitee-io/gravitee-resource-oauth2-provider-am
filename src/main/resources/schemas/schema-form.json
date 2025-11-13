@@ -41,7 +41,28 @@
             "description": "User claim field used to store end user on log analytics",
             "type": "string",
             "default": "sub"
+        },
+        "http": {
+            "$ref": "#/definitions/httpClientOptions"
         }
     },
-    "required": ["serverURL", "version", "securityDomain", "clientId", "clientSecret"]
+    "required": ["serverURL", "version", "securityDomain", "clientId", "clientSecret"],
+    "definitions": {
+        "httpClientOptions": {
+            "type": "object",
+            "javaType": "io.gravitee.resource.oauth2.am.configuration.HttpClientOptions",
+            "title": "HTTP Client options",
+            "properties": {
+                "maxConcurrentConnections": {
+                    "$ref": "#/definitions/maxConcurrentConnections"
+                }
+            }
+        },
+        "maxConcurrentConnections": {
+            "type": "integer",
+            "title": "Max Concurrent Connections",
+            "description": "Maximum pool size for connections.",
+            "default": 100
+        }
+    }
 }

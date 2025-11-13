@@ -24,6 +24,7 @@ import io.gravitee.common.http.HttpHeaders;
 import io.gravitee.common.http.MediaType;
 import io.gravitee.node.api.Node;
 import io.gravitee.resource.api.AbstractConfigurableResource;
+import io.gravitee.resource.oauth2.am.configuration.HttpClientOptions;
 import io.gravitee.resource.oauth2.am.configuration.OAuth2ResourceConfiguration;
 import io.vertx.core.Vertx;
 import java.lang.reflect.Field;
@@ -74,6 +75,7 @@ public class OAuth2AMResourceTest {
         Mockito.when(configuration.getVersion()).thenReturn(new OAuth2ResourceConfiguration().getVersion());
         Mockito.when(configuration.getSecurityDomain()).thenReturn("domain");
         Mockito.when(configuration.getServerURL()).thenReturn("http://localhost:" + wireMockRule.port());
+        Mockito.when(configuration.getHttpClientOptions()).thenReturn(new HttpClientOptions());
     }
 
     @Test
