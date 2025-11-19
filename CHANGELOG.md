@@ -1,3 +1,10 @@
+# [3.1.0](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/compare/3.0.0...3.1.0) (2025-11-19)
+
+
+### Features
+
+* allow to configure max concurrent connections ([9b5e2b6](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/commit/9b5e2b6058326ef1a720e14412eade1756f0f699))
+
 # [3.0.0](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/compare/2.1.0...3.0.0) (2024-12-16)
 
 
