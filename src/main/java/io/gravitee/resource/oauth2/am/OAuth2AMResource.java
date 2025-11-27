@@ -39,8 +39,6 @@ import java.net.URI;
 import java.net.URL;
 import java.util.Base64;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
@@ -72,9 +70,7 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
     private static final String PATH_SEPARATOR = "/";
     private ApplicationContext applicationContext;
 
-    private final Map<Thread, HttpClient> httpClients = new ConcurrentHashMap<>();
-
-    private HttpClientOptions httpClientOptions;
+    private HttpClient httpClient;
 
     private Vertx vertx;
     private String userAgent;
@@ -98,13 +94,12 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
         // URI.getHost does not support '_' in the name, so we are using an intermediate URL to get the final host
         String authorizationServerHost = introspectionUrl.getHost();
 
-        httpClientOptions =
-            new HttpClientOptions()
-                .setDefaultPort(authorizationServerPort)
-                .setDefaultHost(authorizationServerHost)
-                .setMaxPoolSize(configuration().getHttpClientOptions().getMaxConcurrentConnections())
-                .setIdleTimeout(60)
-                .setConnectTimeout(10000);
+        var httpClientOptions = new HttpClientOptions()
+            .setDefaultPort(authorizationServerPort)
+            .setDefaultHost(authorizationServerHost)
+            .setMaxPoolSize(configuration().getHttpClientOptions().getMaxConcurrentConnections())
+            .setIdleTimeout(60)
+            .setConnectTimeout(10000);
 
         if (configuration().isUseSystemProxy()) {
             try {
@@ -153,27 +148,21 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
 
         userAgent = NodeUtils.userAgent(applicationContext.getBean(Node.class));
         vertx = applicationContext.getBean(Vertx.class);
+        httpClient = vertx.createHttpClient(httpClientOptions);
     }
 
     @Override
     protected void doStop() throws Exception {
         super.doStop();
-
-        httpClients
-            .values()
-            .forEach(httpClient -> {
-                try {
-                    httpClient.close();
-                } catch (IllegalStateException ise) {
-                    logger.warn(ise.getMessage());
-                }
-            });
+        try {
+            httpClient.close();
+        } catch (IllegalStateException ise) {
+            logger.warn(ise.getMessage());
+        }
     }
 
     @Override
     public void introspect(String accessToken, Handler<OAuth2Response> responseHandler) {
-        HttpClient httpClient = httpClients.computeIfAbsent(Thread.currentThread(), context -> vertx.createHttpClient(httpClientOptions));
-
         logger.debug("Introspect access token by requesting {}", introspectionEndpointURI);
 
         final RequestOptions reqOptions = new RequestOptions()
@@ -266,8 +255,6 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
 
     @Override
     public void userInfo(String accessToken, Handler<UserInfoResponse> responseHandler) {
-        HttpClient httpClient = httpClients.computeIfAbsent(Thread.currentThread(), context -> vertx.createHttpClient(httpClientOptions));
-
         logger.debug("Get userinfo from {}", userInfoEndpointURI);
 
         final RequestOptions reqOptions = new RequestOptions()
