@@ -17,7 +17,8 @@ package io.gravitee.resource.oauth2.am;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
-import static org.mockito.MockitoAnnotations.initMocks;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import io.gravitee.common.http.HttpHeaders;
@@ -26,6 +27,7 @@ import io.gravitee.node.api.Node;
 import io.gravitee.resource.api.AbstractConfigurableResource;
 import io.gravitee.resource.oauth2.am.configuration.HttpClientOptions;
 import io.gravitee.resource.oauth2.am.configuration.OAuth2ResourceConfiguration;
+import io.gravitee.resource.oauth2.api.OAuth2ResourceMetadata;
 import io.vertx.core.Vertx;
 import java.lang.reflect.Field;
 import java.util.concurrent.CountDownLatch;
@@ -112,7 +114,7 @@ public class OAuth2AMResourceTest {
 
         resource.introspect(accessToken, oAuth2Response -> lock.countDown());
 
-        Assert.assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
+        assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
 
         verify(
             postRequestedFor(urlEqualTo("/domain/oauth/introspect"))
@@ -137,12 +139,12 @@ public class OAuth2AMResourceTest {
             accessToken,
             oAuth2Response -> {
                 Assert.assertFalse(oAuth2Response.isSuccess());
-                Assert.assertEquals("An error occurs while checking access token", oAuth2Response.getPayload());
+                assertEquals("An error occurs while checking access token", oAuth2Response.getPayload());
                 lock.countDown();
             }
         );
 
-        Assert.assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
+        assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
     }
 
     @Test
@@ -166,7 +168,7 @@ public class OAuth2AMResourceTest {
             }
         );
 
-        Assert.assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
+        assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
     }
 
     @Test
@@ -186,12 +188,12 @@ public class OAuth2AMResourceTest {
             accessToken,
             oAuth2Response -> {
                 Assert.assertFalse(oAuth2Response.isSuccess());
-                Assert.assertEquals("An error occurs while checking access token", oAuth2Response.getPayload());
+                assertEquals("An error occurs while checking access token", oAuth2Response.getPayload());
                 lock.countDown();
             }
         );
 
-        Assert.assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
+        assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
     }
 
     @Test
@@ -218,7 +220,7 @@ public class OAuth2AMResourceTest {
             }
         );
 
-        Assert.assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
+        assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
     }
 
     @Test
@@ -246,7 +248,7 @@ public class OAuth2AMResourceTest {
             }
         );
 
-        Assert.assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
+        assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
     }
 
     @Test
@@ -264,12 +266,12 @@ public class OAuth2AMResourceTest {
             "xxxx-xxxx-xxxx-xxxx",
             userInfoResponse -> {
                 Assert.assertFalse(userInfoResponse.isSuccess());
-                Assert.assertEquals("An error occurs while getting userinfo from access token", userInfoResponse.getPayload());
+                assertEquals("An error occurs while getting userinfo from access token", userInfoResponse.getPayload());
                 lock.countDown();
             }
         );
 
-        Assert.assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
+        assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
     }
 
     @Test
@@ -287,11 +289,57 @@ public class OAuth2AMResourceTest {
             "xxxx-xxxx-xxxx-xxxx",
             userInfoResponse -> {
                 Assert.assertFalse(userInfoResponse.isSuccess());
-                Assert.assertEquals("An error occurs while getting userinfo from access token", userInfoResponse.getPayload());
+                assertEquals("An error occurs while getting userinfo from access token", userInfoResponse.getPayload());
                 lock.countDown();
             }
         );
 
-        Assert.assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
+        assertEquals(true, lock.await(10000, TimeUnit.MILLISECONDS));
+    }
+
+    @Test
+    public void getProtectedResourceMetadata_serverUrl_without_ending_slash_securityDomain_without_starting_and_trailing_slash()
+        throws NoSuchFieldException, IllegalAccessException {
+        testGetProtectedResourceMetadata("https://am.gateway.dev", "test");
+    }
+
+    @Test
+    public void getProtectedResourceMetadata_serverUrl_with_ending_slash_securityDomain_without_starting_and_trailing_slash()
+        throws NoSuchFieldException, IllegalAccessException {
+        testGetProtectedResourceMetadata("https://am.gateway.dev/", "test");
+    }
+
+    @Test
+    public void getProtectedResourceMetadata_serverUrl_with_ending_slash_securityDomain_with_starting_and_no_trailing_slash()
+        throws NoSuchFieldException, IllegalAccessException {
+        testGetProtectedResourceMetadata("https://am.gateway.dev/", "/test");
+    }
+
+    @Test
+    public void getProtectedResourceMetadata_serverUrl_with_ending_slash_securityDomain_with_starting_and_trailing_slash()
+        throws NoSuchFieldException, IllegalAccessException {
+        testGetProtectedResourceMetadata("https://am.gateway.dev/", "/test/");
+    }
+
+    @Test
+    public void getProtectedResourceMetadata_serverUrl_without_ending_slash_securityDomain_with_starting_and_trailing_slash()
+        throws NoSuchFieldException, IllegalAccessException {
+        testGetProtectedResourceMetadata("https://am.gateway.dev", "/test/");
+    }
+
+    private void testGetProtectedResourceMetadata(String serverUrl, String securityDomain)
+        throws NoSuchFieldException, IllegalAccessException {
+        OAuth2AMResource resource = new OAuth2AMResource();
+        OAuth2ResourceConfiguration configuration = new OAuth2ResourceConfiguration();
+        configuration.setServerURL(serverUrl);
+        configuration.setSecurityDomain(securityDomain);
+        Field configurationField = AbstractConfigurableResource.class.getDeclaredField("configuration");
+        configurationField.setAccessible(true);
+        configurationField.set(resource, configuration);
+        OAuth2ResourceMetadata resourceMetadata = resource.getProtectedResourceMetadata("https://backend.com");
+        assertEquals("https://backend.com", resourceMetadata.protectedResourceUri());
+        assertEquals("https://am.gateway.dev/test/oidc", resourceMetadata.authorizationServers().get(0));
+        assertEquals(1, resourceMetadata.authorizationServers().size());
+        assertNull(resourceMetadata.scopesSupported());
     }
 }
