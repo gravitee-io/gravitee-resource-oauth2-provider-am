@@ -28,14 +28,17 @@ import io.gravitee.node.vertx.proxy.VertxProxyOptionsUtils;
 import io.gravitee.resource.oauth2.am.configuration.OAuth2ResourceConfiguration;
 import io.gravitee.resource.oauth2.api.OAuth2Resource;
 import io.gravitee.resource.oauth2.api.OAuth2ResourceException;
+import io.gravitee.resource.oauth2.api.OAuth2ResourceMetadata;
 import io.gravitee.resource.oauth2.api.OAuth2Response;
 import io.gravitee.resource.oauth2.api.openid.UserInfoResponse;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.*;
 import io.vertx.core.json.JsonObject;
+import java.net.URI;
 import java.net.URL;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
@@ -350,5 +353,12 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
         this.applicationContext = applicationContext;
+    }
+
+    @Override
+    public OAuth2ResourceMetadata getProtectedResourceMetadata(String protectedResourceUri) {
+        URI authServerUri = URI.create(configuration().getServerURL() + "/" + configuration().getSecurityDomain() + "/oidc");
+        String authorizationServer = authServerUri.normalize().toString().replaceAll("/+$", "");
+        return new OAuth2ResourceMetadata(protectedResourceUri, List.of(authorizationServer), null);
     }
 }
