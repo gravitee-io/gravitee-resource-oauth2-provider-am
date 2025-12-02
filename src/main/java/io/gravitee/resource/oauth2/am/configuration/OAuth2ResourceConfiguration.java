@@ -16,6 +16,9 @@
 package io.gravitee.resource.oauth2.am.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.gravitee.plugin.configurations.http.HttpClientOptions;
+import io.gravitee.plugin.configurations.http.HttpProxyOptions;
+import io.gravitee.plugin.configurations.ssl.SslOptions;
 import io.gravitee.resource.api.ResourceConfiguration;
 
 /**
@@ -40,6 +43,12 @@ public class OAuth2ResourceConfiguration implements ResourceConfiguration {
 
     @JsonProperty("http")
     private HttpClientOptions httpClientOptions = new HttpClientOptions();
+
+    @JsonProperty("proxy")
+    private HttpProxyOptions httpProxyOptions = new HttpProxyOptions();
+
+    @JsonProperty("ssl")
+    private SslOptions sslOptions = new SslOptions();
 
     public String getServerURL() {
         return serverURL;
@@ -95,6 +104,13 @@ public class OAuth2ResourceConfiguration implements ResourceConfiguration {
 
     public void setUseSystemProxy(boolean useSystemProxy) {
         this.useSystemProxy = useSystemProxy;
+        // smooth migration: older versions of the plugin didn't have the httpProxyOptions property,
+        // so we simply set the httpProxyOptions.enabled and httpProxyOptions.setUseSystemProxy property
+        // to avoid huge data migration.
+        if (useSystemProxy) {
+            this.httpProxyOptions.setEnabled(true);
+            this.httpProxyOptions.setUseSystemProxy(true);
+        }
     }
 
     public HttpClientOptions getHttpClientOptions() {
@@ -103,6 +119,22 @@ public class OAuth2ResourceConfiguration implements ResourceConfiguration {
 
     public void setHttpClientOptions(HttpClientOptions httpClientOptions) {
         this.httpClientOptions = httpClientOptions;
+    }
+
+    public HttpProxyOptions getHttpProxyOptions() {
+        return httpProxyOptions;
+    }
+
+    public void setHttpProxyOptions(HttpProxyOptions httpProxyOptions) {
+        this.httpProxyOptions = httpProxyOptions;
+    }
+
+    public SslOptions getSslOptions() {
+        return sslOptions;
+    }
+
+    public void setSslOptions(SslOptions sslOptions) {
+        this.sslOptions = sslOptions;
     }
 
     public enum Version {

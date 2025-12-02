@@ -24,7 +24,7 @@
     <parent>
         <groupId>io.gravitee</groupId>
         <artifactId>gravitee-parent</artifactId>
-        <version>22.6.0</version>
+        <version>23.5.0</version>
     </parent>
 
     <groupId>io.gravitee.resource</groupId>
@@ -40,11 +40,14 @@
         <gravitee-resource-api.version>1.1.0</gravitee-resource-api.version>
         <gravitee-gateway-api.version>3.13.0</gravitee-gateway-api.version>
         <gravitee-resource-oauth2-provider-api.version>1.5.0</gravitee-resource-oauth2-provider-api.version>
-        <gravitee-node.version>6.8.4</gravitee-node.version>
+        <gravitee-node.version>7.17.1</gravitee-node.version>
         <maven-assembly-plugin.version>2.5.5</maven-assembly-plugin.version>
         <!-- Property used by the publication job in CI-->
         <publish-folder-path>graviteeio-apim/plugins/resources</publish-folder-path>
         <wiremock.version>3.13.2</wiremock.version>
+        <gravitee-plugin-common-configurations.version>1.0.0-alpha.2</gravitee-plugin-common-configurations.version>
+        <gravitee-plugin-common-configurations-maven-plugin.version>1.0.0-alpha.2</gravitee-plugin-common-configurations-maven-plugin.version>
+        <mapstruct.version>1.6.3</mapstruct.version>
     </properties>
 
     <dependencyManagement>
@@ -104,6 +107,13 @@
             <scope>provided</scope>
         </dependency>
 
+        <dependency>
+            <groupId>io.gravitee.plugin</groupId>
+            <artifactId>gravitee-plugin-common-configurations</artifactId>
+            <version>${gravitee-plugin-common-configurations.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
         <!-- HTTP client -->
         <dependency>
             <groupId>io.vertx</groupId>
@@ -117,6 +127,20 @@
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
             <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct</artifactId>
+            <scope>provided</scope>
+            <version>${mapstruct.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct-processor</artifactId>
+            <scope>provided</scope>
+            <version>${mapstruct.version}</version>
         </dependency>
 
         <!-- Spring -->
@@ -208,6 +232,29 @@
                         <phase>validate</phase>
                         <goals>
                             <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>io.gravitee.plugin</groupId>
+                <artifactId>gravitee-plugin-common-configurations-maven-plugin</artifactId>
+                <version>${gravitee-plugin-common-configurations-maven-plugin.version}</version>
+                <configuration>
+                    <!-- Filter source artifacts -->
+                    <includeArtifacts>
+                        <include>io.gravitee.plugin:gravitee-plugin-common-configurations</include>
+                    </includeArtifacts>
+
+                    <!-- Files to extract pattern (optionnel, défaut: schemas/**/*.json) -->
+                    <includeSchemas>
+                        <include>schemas/**/schema-form-*.json</include>
+                    </includeSchemas>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>common-schema-form-bundle</goal>
                         </goals>
                     </execution>
                 </executions>
