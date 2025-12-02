@@ -50,7 +50,7 @@
 
         <!-- Then include resource configuration schemas -->
         <fileSet>
-            <directory>src/main/resources/schemas</directory>
+            <directory>${project.build.directory}/classes/schemas</directory>
             <outputDirectory>schemas</outputDirectory>
         </fileSet>
 

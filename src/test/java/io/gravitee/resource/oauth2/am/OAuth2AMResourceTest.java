@@ -24,11 +24,13 @@ import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import io.gravitee.common.http.HttpHeaders;
 import io.gravitee.common.http.MediaType;
 import io.gravitee.node.api.Node;
+import io.gravitee.plugin.configurations.http.HttpClientOptions;
+import io.gravitee.plugin.configurations.http.HttpProxyOptions;
+import io.gravitee.plugin.configurations.ssl.SslOptions;
 import io.gravitee.resource.api.AbstractConfigurableResource;
-import io.gravitee.resource.oauth2.am.configuration.HttpClientOptions;
 import io.gravitee.resource.oauth2.am.configuration.OAuth2ResourceConfiguration;
 import io.gravitee.resource.oauth2.api.OAuth2ResourceMetadata;
-import io.vertx.core.Vertx;
+import io.vertx.rxjava3.core.Vertx;
 import java.lang.reflect.Field;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -78,6 +80,8 @@ public class OAuth2AMResourceTest {
         Mockito.when(configuration.getSecurityDomain()).thenReturn("domain");
         Mockito.when(configuration.getServerURL()).thenReturn("http://localhost:" + wireMockRule.port());
         Mockito.when(configuration.getHttpClientOptions()).thenReturn(new HttpClientOptions());
+        Mockito.when(configuration.getHttpProxyOptions()).thenReturn(new HttpProxyOptions());
+        Mockito.when(configuration.getSslOptions()).thenReturn(new SslOptions());
     }
 
     @Test

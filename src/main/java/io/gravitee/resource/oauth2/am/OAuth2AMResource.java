@@ -24,7 +24,11 @@ import io.gravitee.node.api.Node;
 import io.gravitee.node.api.configuration.Configuration;
 import io.gravitee.node.api.utils.NodeUtils;
 import io.gravitee.node.container.spring.SpringEnvironmentConfiguration;
+import io.gravitee.node.vertx.client.http.VertxHttpClientFactory;
 import io.gravitee.node.vertx.proxy.VertxProxyOptionsUtils;
+import io.gravitee.plugin.mappers.HttpClientOptionsMapper;
+import io.gravitee.plugin.mappers.HttpProxyOptionsMapper;
+import io.gravitee.plugin.mappers.SslOptionsMapper;
 import io.gravitee.resource.oauth2.am.configuration.OAuth2ResourceConfiguration;
 import io.gravitee.resource.oauth2.api.OAuth2Resource;
 import io.gravitee.resource.oauth2.api.OAuth2ResourceException;
@@ -32,10 +36,9 @@ import io.gravitee.resource.oauth2.api.OAuth2ResourceMetadata;
 import io.gravitee.resource.oauth2.api.OAuth2Response;
 import io.gravitee.resource.oauth2.api.openid.UserInfoResponse;
 import io.vertx.core.AsyncResult;
-import io.vertx.core.Vertx;
 import io.vertx.core.http.*;
 import io.vertx.core.json.JsonObject;
-import java.net.URI;
+import io.vertx.rxjava3.core.Vertx;
 import java.net.URL;
 import java.util.Base64;
 import java.util.List;
@@ -72,7 +75,6 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
 
     private HttpClient httpClient;
 
-    private Vertx vertx;
     private String userAgent;
 
     private String introspectionEndpointURI;
@@ -94,31 +96,20 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
         // URI.getHost does not support '_' in the name, so we are using an intermediate URL to get the final host
         String authorizationServerHost = introspectionUrl.getHost();
 
-        var httpClientOptions = new HttpClientOptions()
-            .setDefaultPort(authorizationServerPort)
-            .setDefaultHost(authorizationServerHost)
-            .setMaxPoolSize(configuration().getHttpClientOptions().getMaxConcurrentConnections())
-            .setIdleTimeout(60)
-            .setConnectTimeout(10000);
+        var target = new URL(introspectionUrl.getProtocol(), authorizationServerHost, authorizationServerPort, introspectionUrl.getFile());
 
-        if (configuration().isUseSystemProxy()) {
-            try {
-                Configuration nodeConfig = new SpringEnvironmentConfiguration(applicationContext.getEnvironment());
-                httpClientOptions.setProxyOptions(VertxProxyOptionsUtils.buildProxyOptions(nodeConfig));
-            } catch (IllegalStateException e) {
-                logger.warn(
-                    "AMResource requires a system proxy to be defined to call [{}] but some configurations are missing or not well defined: {}",
-                    configuration().getServerURL(),
-                    e.getMessage()
-                );
-                logger.warn("Ignoring system proxy");
-            }
-        }
-
-        // Use SSL connection if authorization schema is set to HTTPS
-        if (HTTPS_SCHEME.equalsIgnoreCase(introspectionUrl.getProtocol())) {
-            httpClientOptions.setSsl(true).setVerifyHost(false).setTrustAll(true);
-        }
+        httpClient =
+            VertxHttpClientFactory
+                .builder()
+                .vertx(applicationContext.getBean(Vertx.class))
+                .nodeConfiguration(new SpringEnvironmentConfiguration(applicationContext.getEnvironment()))
+                .defaultTarget(target.toString())
+                .httpOptions(HttpClientOptionsMapper.INSTANCE.map(configuration().getHttpClientOptions()))
+                .sslOptions(SslOptionsMapper.INSTANCE.map(configuration().getSslOptions()))
+                .proxyOptions(HttpProxyOptionsMapper.INSTANCE.map(configuration().getHttpProxyOptions()))
+                .build()
+                .createHttpClient()
+                .getDelegate();
 
         introspectionEndpointAuthorization =
             AUTHORIZATION_HEADER_BASIC_SCHEME +
@@ -147,8 +138,6 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
         }
 
         userAgent = NodeUtils.userAgent(applicationContext.getBean(Node.class));
-        vertx = applicationContext.getBean(Vertx.class);
-        httpClient = vertx.createHttpClient(httpClientOptions);
     }
 
     @Override
