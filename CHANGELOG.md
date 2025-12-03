@@ -1,3 +1,10 @@
+# [3.2.0-alpha.1](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/compare/3.1.0...3.2.0-alpha.1) (2025-12-03)
+
+
+### Features
+
+* add the OAuth2AMResource.getProtectedResourceMetadata() method ([b366184](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/commit/b3661845c367604ee31af70c5b0efb165e951906))
+
 # [3.1.0](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/compare/3.0.0...3.1.0) (2025-11-19)
 
 
