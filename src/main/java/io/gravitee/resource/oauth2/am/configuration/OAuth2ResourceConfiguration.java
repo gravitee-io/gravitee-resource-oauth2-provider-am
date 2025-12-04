@@ -16,29 +16,39 @@
 package io.gravitee.resource.oauth2.am.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.gravitee.plugin.annotation.ConfigurationEvaluator;
 import io.gravitee.plugin.configurations.http.HttpClientOptions;
 import io.gravitee.plugin.configurations.http.HttpProxyOptions;
 import io.gravitee.plugin.configurations.ssl.SslOptions;
 import io.gravitee.resource.api.ResourceConfiguration;
+import io.gravitee.secrets.api.annotation.Secret;
+import lombok.AccessLevel;
+import lombok.Data;
+import lombok.Setter;
 
 /**
  * @author David BRASSELY (david.brassely at graviteesource.com)
  * @author GraviteeSource Team
  */
+@ConfigurationEvaluator
+@Data
 public class OAuth2ResourceConfiguration implements ResourceConfiguration {
 
     private String serverURL;
 
     private String securityDomain;
 
+    @Secret
     private String clientId;
 
+    @Secret
     private String clientSecret;
 
     private Version version = Version.V1_X;
 
     private String userClaim;
 
+    @Setter(AccessLevel.NONE)
     private boolean useSystemProxy;
 
     @JsonProperty("http")
@@ -50,58 +60,6 @@ public class OAuth2ResourceConfiguration implements ResourceConfiguration {
     @JsonProperty("ssl")
     private SslOptions sslOptions = new SslOptions();
 
-    public String getServerURL() {
-        return serverURL;
-    }
-
-    public void setServerURL(String serverURL) {
-        this.serverURL = serverURL;
-    }
-
-    public String getSecurityDomain() {
-        return securityDomain;
-    }
-
-    public void setSecurityDomain(String securityDomain) {
-        this.securityDomain = securityDomain;
-    }
-
-    public String getClientId() {
-        return clientId;
-    }
-
-    public void setClientId(String clientId) {
-        this.clientId = clientId;
-    }
-
-    public String getClientSecret() {
-        return clientSecret;
-    }
-
-    public void setClientSecret(String clientSecret) {
-        this.clientSecret = clientSecret;
-    }
-
-    public Version getVersion() {
-        return version;
-    }
-
-    public void setVersion(Version version) {
-        this.version = version;
-    }
-
-    public String getUserClaim() {
-        return userClaim;
-    }
-
-    public void setUserClaim(String userClaim) {
-        this.userClaim = userClaim;
-    }
-
-    public boolean isUseSystemProxy() {
-        return useSystemProxy;
-    }
-
     public void setUseSystemProxy(boolean useSystemProxy) {
         this.useSystemProxy = useSystemProxy;
         // smooth migration: older versions of the plugin didn't have the httpProxyOptions property,
@@ -111,30 +69,6 @@ public class OAuth2ResourceConfiguration implements ResourceConfiguration {
             this.httpProxyOptions.setEnabled(true);
             this.httpProxyOptions.setUseSystemProxy(true);
         }
-    }
-
-    public HttpClientOptions getHttpClientOptions() {
-        return httpClientOptions;
-    }
-
-    public void setHttpClientOptions(HttpClientOptions httpClientOptions) {
-        this.httpClientOptions = httpClientOptions;
-    }
-
-    public HttpProxyOptions getHttpProxyOptions() {
-        return httpProxyOptions;
-    }
-
-    public void setHttpProxyOptions(HttpProxyOptions httpProxyOptions) {
-        this.httpProxyOptions = httpProxyOptions;
-    }
-
-    public SslOptions getSslOptions() {
-        return sslOptions;
-    }
-
-    public void setSslOptions(SslOptions sslOptions) {
-        this.sslOptions = sslOptions;
     }
 
     public enum Version {
