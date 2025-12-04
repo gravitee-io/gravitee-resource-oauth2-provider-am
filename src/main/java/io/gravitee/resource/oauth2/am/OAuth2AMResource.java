@@ -20,6 +20,7 @@ import io.gravitee.common.http.HttpStatusCode;
 import io.gravitee.common.http.MediaType;
 import io.gravitee.common.utils.UUID;
 import io.gravitee.gateway.api.handler.Handler;
+import io.gravitee.gateway.reactive.api.context.DeploymentContext;
 import io.gravitee.node.api.Node;
 import io.gravitee.node.api.configuration.Configuration;
 import io.gravitee.node.api.utils.NodeUtils;
@@ -30,6 +31,7 @@ import io.gravitee.plugin.mappers.HttpClientOptionsMapper;
 import io.gravitee.plugin.mappers.HttpProxyOptionsMapper;
 import io.gravitee.plugin.mappers.SslOptionsMapper;
 import io.gravitee.resource.oauth2.am.configuration.OAuth2ResourceConfiguration;
+import io.gravitee.resource.oauth2.am.configuration.OAuth2ResourceConfigurationEvaluator;
 import io.gravitee.resource.oauth2.api.OAuth2Resource;
 import io.gravitee.resource.oauth2.api.OAuth2ResourceException;
 import io.gravitee.resource.oauth2.api.OAuth2ResourceMetadata;
@@ -39,9 +41,12 @@ import io.vertx.core.AsyncResult;
 import io.vertx.core.http.*;
 import io.vertx.core.json.JsonObject;
 import io.vertx.rxjava3.core.Vertx;
+import java.net.URI;
 import java.net.URL;
 import java.util.Base64;
 import java.util.List;
+import javax.inject.Inject;
+import lombok.Setter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
@@ -80,10 +85,25 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
     private String introspectionEndpointURI;
     private String introspectionEndpointAuthorization;
     private String userInfoEndpointURI;
+    private OAuth2ResourceConfiguration configuration;
+
+    @Inject
+    @Setter
+    private DeploymentContext deploymentContext;
+
+    @Override
+    public OAuth2ResourceConfiguration configuration() {
+        if (configuration == null) {
+            return super.configuration();
+        }
+        return configuration;
+    }
 
     @Override
     protected void doStart() throws Exception {
         super.doStart();
+
+        configuration = new OAuth2ResourceConfigurationEvaluator(configuration()).evalNow(deploymentContext);
 
         logger.info("Starting an OAuth2 resource using Gravitee.io Access Management server at {}", configuration().getServerURL());
 
