@@ -1,3 +1,15 @@
+# [4.0.0-alpha.1](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/compare/3.2.0-alpha.1...4.0.0-alpha.1) (2025-12-05)
+
+
+### Documentation
+
+* update the README.adoc file after breaking change ([ea51cf6](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/commit/ea51cf6cd8e9b65cec0b3a8c8c1a0a16b7a350a6))
+
+
+### BREAKING CHANGES
+
+* require APIM 4.10.x
+
 # [3.2.0-alpha.1](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/compare/3.1.0...3.2.0-alpha.1) (2025-12-03)
 
 
