@@ -1,3 +1,16 @@
+# [4.0.0-alpha.2](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/compare/4.0.0-alpha.1...4.0.0-alpha.2) (2025-12-08)
+
+
+### Features
+
+* add compatibility with gravitee-secret-api ([a933bd0](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/commit/a933bd0f182d499c0f0d82fc0086134b2260cf95))
+* use common http client, http proxy and ssl configuration ([7485dc9](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/commit/7485dc91d222eb42d7662c7a6817769c03e6c6ba))
+
+
+### BREAKING CHANGES
+
+* bump gravitee-parent
+
 # [4.0.0-alpha.1](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/compare/3.2.0-alpha.1...4.0.0-alpha.1) (2025-12-05)
 
 
