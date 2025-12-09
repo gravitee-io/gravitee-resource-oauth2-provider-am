@@ -1,3 +1,10 @@
+# [4.0.0-alpha.3](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/compare/4.0.0-alpha.2...4.0.0-alpha.3) (2025-12-09)
+
+
+### Bug Fixes
+
+* return an empty list instead of null for the OAuth2ResourceMetadata.scopesSupported ([25e4f54](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/commit/25e4f54efd06fb4d0fe7ab2ebb77dc5ba591a2dc))
+
 # [4.0.0-alpha.2](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/compare/4.0.0-alpha.1...4.0.0-alpha.2) (2025-12-08)
 
 
