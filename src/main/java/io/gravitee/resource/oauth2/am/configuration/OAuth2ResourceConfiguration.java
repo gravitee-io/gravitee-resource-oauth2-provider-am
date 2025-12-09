@@ -58,7 +58,19 @@ public class OAuth2ResourceConfiguration implements ResourceConfiguration {
     private HttpProxyOptions httpProxyOptions = new HttpProxyOptions();
 
     @JsonProperty("ssl")
-    private SslOptions sslOptions = new SslOptions();
+    @Setter(AccessLevel.NONE)
+    private SslOptions sslOptions;
+
+    public void setSslOptions(SslOptions sslOptions) {
+        // smooth migration: older versions of the plugin didn't have the sslOptions property,
+        // but when the target was a secured schema (https), we enforced hostnameVerifier to false and trustAll to true.
+        // This setter does not break the backward compatibility, and accept new sslOptions properly for new APIs and updates.
+        if (sslOptions == null) {
+            this.sslOptions = SslOptions.builder().hostnameVerifier(false).trustAll(true).build();
+            return;
+        }
+        this.sslOptions = sslOptions;
+    }
 
     public void setUseSystemProxy(boolean useSystemProxy) {
         this.useSystemProxy = useSystemProxy;
