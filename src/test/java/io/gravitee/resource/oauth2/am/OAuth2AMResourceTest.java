@@ -344,6 +344,6 @@ public class OAuth2AMResourceTest {
         assertThat(resourceMetadata.protectedResourceUri()).isEqualTo("https://backend.com");
         assertThat(resourceMetadata.authorizationServers().get(0)).isEqualTo("https://am.gateway.dev/test/oidc");
         assertThat(resourceMetadata.authorizationServers()).hasSize(1);
-        assertThat(resourceMetadata.scopesSupported()).isNull();
+        assertThat(resourceMetadata.scopesSupported()).isEmpty();
     }
 }
