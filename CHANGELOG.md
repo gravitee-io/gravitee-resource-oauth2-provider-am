@@ -1,3 +1,10 @@
+# [4.0.0-alpha.4](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/compare/4.0.0-alpha.3...4.0.0-alpha.4) (2025-12-10)
+
+
+### Bug Fixes
+
+* keep ssl settings for backward compatibility ([1ea4270](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/commit/1ea4270d5d1591fe65a946df329873bd023af97b))
+
 # [4.0.0-alpha.3](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/compare/4.0.0-alpha.2...4.0.0-alpha.3) (2025-12-09)
 
 
