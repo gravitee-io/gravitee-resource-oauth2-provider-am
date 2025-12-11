@@ -7,12 +7,6 @@
             "description": "The URL of the Access Management server.",
             "type": "string"
         },
-        "useSystemProxy": {
-            "title": "System proxy",
-            "description": "Use system proxy",
-            "type": "boolean",
-            "default": false
-        },
         "version": {
             "title": "Version",
             "description": "The version of the Access Management server.",
@@ -43,7 +37,13 @@
             "default": "sub"
         },
         "http": {
-            "$ref": "#/definitions/httpClientOptions"
+            "$ref": "#/gioExternalDefinitions/httpClientOptions"
+        },
+        "proxy": {
+            "$ref": "#/gioExternalDefinitions/httpProxyOptions"
+        },
+        "ssl": {
+            "$ref": "#/gioExternalDefinitions/sslOptions"
         }
     },
     "required": ["serverURL", "version", "securityDomain", "clientId", "clientSecret"],

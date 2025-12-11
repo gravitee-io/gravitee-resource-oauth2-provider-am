@@ -13,27 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.gravitee.resource.oauth2.am.configuration;
+package io.gravitee.resource.oauth2.am;
 
-import static io.gravitee.node.vertx.client.http.VertxHttpClientOptions.DEFAULT_MAX_CONCURRENT_CONNECTIONS;
+import io.gravitee.el.TemplateEngine;
+import io.gravitee.gateway.reactive.api.context.DeploymentContext;
+import lombok.RequiredArgsConstructor;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+@RequiredArgsConstructor
+public class TestDeploymentContext implements DeploymentContext {
 
-/**
- * @author Yann TAVERNIER (yann.tavernier at graviteesource.com)
- * @author GraviteeSource Team
- */
-@Getter
-@Setter
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class HttpClientOptions {
+    private final TemplateEngine templateEngine;
 
-    @Builder.Default
-    private int maxConcurrentConnections = DEFAULT_MAX_CONCURRENT_CONNECTIONS;
+    @Override
+    public <T> T getComponent(Class<T> componentClass) {
+        return null;
+    }
+
+    @Override
+    public TemplateEngine getTemplateEngine() {
+        return this.templateEngine;
+    }
 }

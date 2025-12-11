@@ -18,7 +18,8 @@ Management instance.
 |===
 |Plugin version | APIM version
 
-|3.0 and upper                  | 4.4.x to latest
+|4.0 and upper                  | 4.10.x to latest
+|3.0 and upper                  | 4.4.x to 4.9.x
 |2.0 and upper                  | 3.18.x to 4.3.X
 |1.14.x and upper               | 3.10.x to 3.17.x
 |Up to 1.13.x                   | Up to 3.9.x
@@ -79,7 +80,34 @@ You can configure the resource with the following options :
         "clientSecret": "f2ddb55e-30b5-4a45-9db5-5e30b52a4574",
         "securityDomain": "my-security",
         "serverURL": "https://graviteeio_access_management",
-        "userClaim": "sub"
+        "userClaim": "sub",
+ "proxy": {
+          "useSystemProxy": false,
+          "enabled": false
+        },
+        "http": {
+          "keepAliveTimeout": 66666,
+          "keepAlive": true,
+          "propagateClientHost": false,
+          "followRedirects": false,
+          "readTimeout": 10000,
+          "idleTimeout": 0,
+          "connectTimeout": 6666,
+          "useCompression": true,
+          "maxConcurrentConnections": 66,
+          "version": "HTTP_1_1",
+          "pipelining": false
+        },
+        "ssl": {
+          "keyStore": {
+            "type": ""
+          },
+          "hostnameVerifier": true,
+          "trustStore": {
+            "type": ""
+          },
+          "trustAll": false
+        }
     }
 }
 ----
