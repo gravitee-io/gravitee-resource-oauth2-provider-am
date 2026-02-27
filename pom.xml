@@ -41,7 +41,7 @@
         <gravitee-gateway-api.version>3.13.0</gravitee-gateway-api.version>
         <gravitee-resource-oauth2-provider-api.version>1.5.0</gravitee-resource-oauth2-provider-api.version>
         <gravitee-node.version>7.25.0</gravitee-node.version>
-        <maven-assembly-plugin.version>2.5.5</maven-assembly-plugin.version>
+        <maven-assembly-plugin.version>3.8.0</maven-assembly-plugin.version>
         <!-- Property used by the publication job in CI-->
         <publish-folder-path>graviteeio-apim/plugins/resources</publish-folder-path>
         <wiremock.version>3.13.2</wiremock.version>
