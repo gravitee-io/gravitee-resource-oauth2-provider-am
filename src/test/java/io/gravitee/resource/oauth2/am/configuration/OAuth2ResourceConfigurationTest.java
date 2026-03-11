@@ -29,6 +29,7 @@ import io.gravitee.secrets.api.el.DelegatingEvaluatedSecretsMethods;
 import io.gravitee.secrets.api.el.EvaluatedSecretsMethods;
 import io.gravitee.secrets.api.el.FieldKind;
 import io.gravitee.secrets.api.el.SecretFieldAccessControl;
+import io.reactivex.rxjava3.core.Single;
 import io.vertx.rxjava3.core.Vertx;
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -42,7 +43,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationContext;
 
@@ -71,18 +71,18 @@ public class OAuth2ResourceConfigurationTest {
         recordedSecretFieldAccessControls.clear();
         EvaluatedSecretsMethods delegate = new EvaluatedSecretsMethods() {
             @Override
-            public String fromGrant(String secretValue, SecretFieldAccessControl secretFieldAccessControl) {
+            public Single<String> fromGrant(String secretValue, SecretFieldAccessControl secretFieldAccessControl) {
                 recordedSecretFieldAccessControls.add(secretFieldAccessControl);
-                return secretValue;
+                return Single.just(secretValue);
             }
 
             @Override
-            public String fromGrant(String contextId, String secretKey, SecretFieldAccessControl secretFieldAccessControl) {
+            public Single<String> fromGrant(String contextId, String secretKey, SecretFieldAccessControl secretFieldAccessControl) {
                 return fromGrant(contextId, secretFieldAccessControl);
             }
 
             @Override
-            public String fromEL(String contextId, String uriOrName, SecretFieldAccessControl secretFieldAccessControl) {
+            public Single<String> fromEL(String contextId, String uriOrName, SecretFieldAccessControl secretFieldAccessControl) {
                 return fromGrant(contextId, secretFieldAccessControl);
             }
         };
@@ -120,12 +120,11 @@ public class OAuth2ResourceConfigurationTest {
         assertThat(resource.configuration().getClientSecret()).isEqualTo("that is a secret");
         assertThat(resource.configuration().getHttpProxyOptions().getPassword()).isEqualTo("that is a password");
 
-        assertThat(recordedSecretFieldAccessControls)
-            .containsExactlyInAnyOrder(
-                new SecretFieldAccessControl(true, FieldKind.GENERIC, "clientSecret"),
-                new SecretFieldAccessControl(true, FieldKind.GENERIC, "clientId"),
-                new SecretFieldAccessControl(true, FieldKind.PASSWORD, "httpProxyOptions.password")
-            );
+        assertThat(recordedSecretFieldAccessControls).containsExactlyInAnyOrder(
+            new SecretFieldAccessControl(true, FieldKind.GENERIC, "clientSecret"),
+            new SecretFieldAccessControl(true, FieldKind.GENERIC, "clientId"),
+            new SecretFieldAccessControl(true, FieldKind.PASSWORD, "httpProxyOptions.password")
+        );
     }
 
     @Test
@@ -153,8 +152,7 @@ public class OAuth2ResourceConfigurationTest {
 
     OAuth2AMResource underTest(OAuth2ResourceConfiguration config) throws IllegalAccessException {
         OAuth2AMResource resource = new OAuth2AMResource();
-        Optional<Field> configuration = Stream
-            .of(resource.getClass().getSuperclass().getSuperclass().getDeclaredFields())
+        Optional<Field> configuration = Stream.of(resource.getClass().getSuperclass().getSuperclass().getDeclaredFields())
             .filter(field -> field.getName().equals("configuration") && field.getType().equals(ResourceConfiguration.class))
             .findFirst();
         if (configuration.isPresent()) {
