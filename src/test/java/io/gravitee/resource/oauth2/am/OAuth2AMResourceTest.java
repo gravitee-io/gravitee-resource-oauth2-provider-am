@@ -152,14 +152,11 @@ public class OAuth2AMResourceTest {
 
         resource.doStart();
 
-        resource.introspect(
-            accessToken,
-            oAuth2Response -> {
-                assertThat(oAuth2Response.isSuccess()).isFalse();
-                assertThat(oAuth2Response.getPayload()).isEqualTo("An error occurs while checking access token");
-                lock.countDown();
-            }
-        );
+        resource.introspect(accessToken, oAuth2Response -> {
+            assertThat(oAuth2Response.isSuccess()).isFalse();
+            assertThat(oAuth2Response.getPayload()).isEqualTo("An error occurs while checking access token");
+            lock.countDown();
+        });
 
         assertThat(lock.await(10000, TimeUnit.MILLISECONDS)).isTrue();
     }
@@ -177,13 +174,10 @@ public class OAuth2AMResourceTest {
 
         resource.doStart();
 
-        resource.introspect(
-            accessToken,
-            oAuth2Response -> {
-                assertThat(oAuth2Response.isSuccess()).isFalse();
-                lock.countDown();
-            }
-        );
+        resource.introspect(accessToken, oAuth2Response -> {
+            assertThat(oAuth2Response.isSuccess()).isFalse();
+            lock.countDown();
+        });
 
         assertThat(lock.await(10000, TimeUnit.MILLISECONDS)).isTrue();
     }
@@ -199,14 +193,11 @@ public class OAuth2AMResourceTest {
 
         resource.doStart();
 
-        resource.introspect(
-            accessToken,
-            oAuth2Response -> {
-                assertThat(oAuth2Response.isSuccess()).isFalse();
-                assertThat(oAuth2Response.getPayload()).isEqualTo("An error occurs while checking access token");
-                lock.countDown();
-            }
-        );
+        resource.introspect(accessToken, oAuth2Response -> {
+            assertThat(oAuth2Response.isSuccess()).isFalse();
+            assertThat(oAuth2Response.getPayload()).isEqualTo("An error occurs while checking access token");
+            lock.countDown();
+        });
 
         assertThat(lock.await(10000, TimeUnit.MILLISECONDS)).isTrue();
     }
@@ -214,23 +205,19 @@ public class OAuth2AMResourceTest {
     @Test
     public void shouldGetUserInfo() throws Exception {
         wiremock.stubFor(
-            get(urlEqualTo("/domain/userinfo"))
-                .willReturn(
-                    aResponse().withStatus(200).withBody("{\"sub\": \"248289761001\", \"name\": \"Jane Doe\", \"given_name\": \"Jane\"}")
-                )
+            get(urlEqualTo("/domain/userinfo")).willReturn(
+                aResponse().withStatus(200).withBody("{\"sub\": \"248289761001\", \"name\": \"Jane Doe\", \"given_name\": \"Jane\"}")
+            )
         );
 
         final CountDownLatch lock = new CountDownLatch(1);
 
         resource.doStart();
 
-        resource.userInfo(
-            "xxxx-xxxx-xxxx-xxxx",
-            userInfoResponse -> {
-                assertThat(userInfoResponse.isSuccess()).isTrue();
-                lock.countDown();
-            }
-        );
+        resource.userInfo("xxxx-xxxx-xxxx-xxxx", userInfoResponse -> {
+            assertThat(userInfoResponse.isSuccess()).isTrue();
+            lock.countDown();
+        });
 
         assertThat(lock.await(10000, TimeUnit.MILLISECONDS)).isTrue();
     }
@@ -238,10 +225,9 @@ public class OAuth2AMResourceTest {
     @Test
     public void shouldGetUserInfo_v2() throws Exception {
         wiremock.stubFor(
-            get(urlEqualTo("/domain/oidc/userinfo"))
-                .willReturn(
-                    aResponse().withStatus(200).withBody("{\"sub\": \"248289761001\", \"name\": \"Jane Doe\", \"given_name\": \"Jane\"}")
-                )
+            get(urlEqualTo("/domain/oidc/userinfo")).willReturn(
+                aResponse().withStatus(200).withBody("{\"sub\": \"248289761001\", \"name\": \"Jane Doe\", \"given_name\": \"Jane\"}")
+            )
         );
 
         final CountDownLatch lock = new CountDownLatch(1);
@@ -250,13 +236,10 @@ public class OAuth2AMResourceTest {
 
         resource.doStart();
 
-        resource.userInfo(
-            "xxxx-xxxx-xxxx-xxxx",
-            userInfoResponse -> {
-                assertThat(userInfoResponse.isSuccess()).isTrue();
-                lock.countDown();
-            }
-        );
+        resource.userInfo("xxxx-xxxx-xxxx-xxxx", userInfoResponse -> {
+            assertThat(userInfoResponse.isSuccess()).isTrue();
+            lock.countDown();
+        });
 
         assertThat(lock.await(10000, TimeUnit.MILLISECONDS)).isTrue();
     }
@@ -269,14 +252,11 @@ public class OAuth2AMResourceTest {
 
         resource.doStart();
 
-        resource.userInfo(
-            "xxxx-xxxx-xxxx-xxxx",
-            userInfoResponse -> {
-                assertThat(userInfoResponse.isSuccess()).isFalse();
-                assertThat(userInfoResponse.getPayload()).isEqualTo("An error occurs while getting userinfo from access token");
-                lock.countDown();
-            }
-        );
+        resource.userInfo("xxxx-xxxx-xxxx-xxxx", userInfoResponse -> {
+            assertThat(userInfoResponse.isSuccess()).isFalse();
+            assertThat(userInfoResponse.getPayload()).isEqualTo("An error occurs while getting userinfo from access token");
+            lock.countDown();
+        });
 
         assertThat(lock.await(10000, TimeUnit.MILLISECONDS)).isTrue();
     }
@@ -289,14 +269,11 @@ public class OAuth2AMResourceTest {
 
         resource.doStart();
 
-        resource.userInfo(
-            "xxxx-xxxx-xxxx-xxxx",
-            userInfoResponse -> {
-                assertThat(userInfoResponse.isSuccess()).isFalse();
-                assertThat(userInfoResponse.getPayload()).isEqualTo("An error occurs while getting userinfo from access token");
-                lock.countDown();
-            }
-        );
+        resource.userInfo("xxxx-xxxx-xxxx-xxxx", userInfoResponse -> {
+            assertThat(userInfoResponse.isSuccess()).isFalse();
+            assertThat(userInfoResponse.getPayload()).isEqualTo("An error occurs while getting userinfo from access token");
+            lock.countDown();
+        });
 
         assertThat(lock.await(10000, TimeUnit.MILLISECONDS)).isTrue();
     }
