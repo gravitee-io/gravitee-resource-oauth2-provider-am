@@ -39,7 +39,7 @@
         <gravitee-common.version>4.9.0</gravitee-common.version>
         <gravitee-resource-api.version>1.1.0</gravitee-resource-api.version>
         <gravitee-gateway-api.version>3.13.0</gravitee-gateway-api.version>
-        <gravitee-resource-oauth2-provider-api.version>1.5.0</gravitee-resource-oauth2-provider-api.version>
+        <gravitee-resource-oauth2-provider-api.version>1.5.1</gravitee-resource-oauth2-provider-api.version>
         <gravitee-node.version>7.26.1</gravitee-node.version>
         <maven-assembly-plugin.version>2.5.5</maven-assembly-plugin.version>
         <!-- Property used by the publication job in CI-->
@@ -89,8 +89,10 @@
         <dependency>
             <groupId>io.gravitee.resource</groupId>
             <artifactId>gravitee-resource-oauth2-provider-api</artifactId>
+            <!-- Version specified to avoid a breaking change. Once the versions of APIM under 4.12 will not be maintained anymore
+                    we can move back to scope provided and remove the version. -->
+            <!-- <scope>provided</scope> -->
             <version>${gravitee-resource-oauth2-provider-api.version}</version>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
