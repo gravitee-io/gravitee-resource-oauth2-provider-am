@@ -314,10 +314,6 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
     public OAuth2ResourceMetadata getProtectedResourceMetadata(String protectedResourceUri, List<String> scopesSupported) {
         URI authServerUri = URI.create(configuration().getServerURL() + "/" + configuration().getSecurityDomain() + "/oidc");
         String authorizationServer = authServerUri.normalize().toString().replaceAll("/+$", "");
-        return new OAuth2ResourceMetadata(
-            protectedResourceUri,
-            List.of(authorizationServer),
-            scopesSupported != null ? scopesSupported : List.of()
-        );
+        return new OAuth2ResourceMetadata(protectedResourceUri, List.of(authorizationServer), scopesSupported);
     }
 }
