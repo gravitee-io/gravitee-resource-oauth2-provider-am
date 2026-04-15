@@ -38,6 +38,7 @@ import io.gravitee.resource.oauth2.am.configuration.OAuth2ResourceConfiguration;
 import io.gravitee.resource.oauth2.api.OAuth2ResourceMetadata;
 import io.vertx.rxjava3.core.Vertx;
 import java.lang.reflect.Field;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeAll;
@@ -46,7 +47,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationContext;
 
@@ -308,6 +308,20 @@ public class OAuth2AMResourceTest {
         testGetProtectedResourceMetadata("https://am.gateway.dev", "/test/");
     }
 
+    @Test
+    public void getProtectedResourceMetadata_withScopesSupported() {
+        configuration.setServerURL("https://am.gateway.dev");
+        configuration.setSecurityDomain("test");
+        OAuth2ResourceMetadata resourceMetadata = resource.getProtectedResourceMetadata(
+            "https://backend.com",
+            List.of("openid", "profile", "email")
+        );
+        assertThat(resourceMetadata.protectedResourceUri()).isEqualTo("https://backend.com");
+        assertThat(resourceMetadata.authorizationServers().get(0)).isEqualTo("https://am.gateway.dev/test/oidc");
+        assertThat(resourceMetadata.authorizationServers()).hasSize(1);
+        assertThat(resourceMetadata.scopesSupported()).containsExactly("openid", "profile", "email");
+    }
+
     private void testGetProtectedResourceMetadata(String serverUrl, String securityDomain)
         throws NoSuchFieldException, IllegalAccessException {
         OAuth2AMResource resource = new OAuth2AMResource();
@@ -317,7 +331,7 @@ public class OAuth2AMResourceTest {
         Field configurationField = AbstractConfigurableResource.class.getDeclaredField("configuration");
         configurationField.setAccessible(true);
         configurationField.set(resource, configuration);
-        OAuth2ResourceMetadata resourceMetadata = resource.getProtectedResourceMetadata("https://backend.com");
+        OAuth2ResourceMetadata resourceMetadata = resource.getProtectedResourceMetadata("https://backend.com", List.of());
         assertThat(resourceMetadata.protectedResourceUri()).isEqualTo("https://backend.com");
         assertThat(resourceMetadata.authorizationServers().get(0)).isEqualTo("https://am.gateway.dev/test/oidc");
         assertThat(resourceMetadata.authorizationServers()).hasSize(1);
