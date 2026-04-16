@@ -1,3 +1,10 @@
+## [4.0.1](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/compare/4.0.0...4.0.1) (2026-04-16)
+
+
+### Bug Fixes
+
+* include the scopes when returning the protected resource metadata from the oauth2 policy ([297a65f](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/commit/297a65f81d098c9d17702f25adfc5d56f26c2985))
+
 # [4.0.0](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/compare/3.1.0...4.0.0) (2025-12-11)
 
 
