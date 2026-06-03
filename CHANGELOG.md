@@ -1,3 +1,10 @@
+# [5.0.0-alpha.3](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/compare/5.0.0-alpha.2...5.0.0-alpha.3) (2026-06-03)
+
+
+### Bug Fixes
+
+* bump apim dependency to 4.12.0-milestone.1 ([d1e4132](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/commit/d1e4132731ae0fdfc95e1b11c484420aa6b8393e))
+
 # [5.0.0-alpha.2](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/compare/5.0.0-alpha.1...5.0.0-alpha.2) (2026-04-15)
 
 
