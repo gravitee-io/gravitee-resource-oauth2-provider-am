@@ -25,6 +25,7 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMoc
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.lenient;
 
+import com.github.tomakehurst.wiremock.http.Fault;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import io.gravitee.common.http.HttpHeaders;
 import io.gravitee.common.http.MediaType;
@@ -41,6 +42,7 @@ import java.lang.reflect.Field;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -183,6 +185,52 @@ public class OAuth2AMResourceTest {
     }
 
     @Test
+    public void shouldHandleMalformedIntrospectionBody_v2_withoutHanging() throws Exception {
+        String accessToken = "xxxx-xxxx-xxxx-xxxx";
+        // AM v2 introspection always returns HTTP 200, but a malformed/empty body must not hang the request
+        wiremock.stubFor(post(urlEqualTo("/domain/oauth/introspect")).willReturn(aResponse().withStatus(200).withBody("not-a-json")));
+
+        final CountDownLatch lock = new CountDownLatch(1);
+
+        configuration.setVersion(OAuth2ResourceConfiguration.Version.V2_X);
+
+        resource.doStart();
+
+        resource.introspect(accessToken, oAuth2Response -> {
+            assertThat(oAuth2Response.isSuccess()).isFalse();
+            lock.countDown();
+        });
+
+        assertThat(lock.await(10000, TimeUnit.MILLISECONDS)).isTrue();
+    }
+
+    @Test
+    public void shouldInvokeHandlerExactlyOnce_whenConnectionResetMidExchange() throws Exception {
+        String accessToken = "xxxx-xxxx-xxxx-xxxx";
+        // Transport-level failure: the connection is reset while the exchange is in flight.
+        // The handler must be invoked exactly once (a single failure response), never twice.
+        wiremock.stubFor(post(urlEqualTo("/domain/oauth/introspect")).willReturn(aResponse().withFault(Fault.CONNECTION_RESET_BY_PEER)));
+
+        final AtomicInteger invocations = new AtomicInteger(0);
+        final CountDownLatch firstInvocation = new CountDownLatch(1);
+
+        configuration.setVersion(OAuth2ResourceConfiguration.Version.V2_X);
+
+        resource.doStart();
+
+        resource.introspect(accessToken, oAuth2Response -> {
+            invocations.incrementAndGet();
+            assertThat(oAuth2Response.isSuccess()).isFalse();
+            firstInvocation.countDown();
+        });
+
+        // Wait for the (single) failure callback, then leave a grace period for any erroneous second call.
+        assertThat(firstInvocation.await(10000, TimeUnit.MILLISECONDS)).isTrue();
+        Thread.sleep(500);
+        assertThat(invocations.get()).isEqualTo(1);
+    }
+
+    @Test
     public void shouldNotValidateAccessToken_v2_not_200() throws Exception {
         String accessToken = "xxxx-xxxx-xxxx-xxxx";
         wiremock.stubFor(post(urlEqualTo("/domain/oauth/introspect")).willReturn(aResponse().withStatus(401)));
@@ -320,6 +368,17 @@ public class OAuth2AMResourceTest {
         assertThat(resourceMetadata.authorizationServers().get(0)).isEqualTo("https://am.gateway.dev/test/oidc");
         assertThat(resourceMetadata.authorizationServers()).hasSize(1);
         assertThat(resourceMetadata.scopesSupported()).containsExactly("openid", "profile", "email");
+    }
+
+    @Test
+    public void getProtectedResourceMetadata_withNullScopesSupported_returnsEmptyList() {
+        configuration.setServerURL("https://am.gateway.dev");
+        configuration.setSecurityDomain("test");
+        OAuth2ResourceMetadata resourceMetadata = resource.getProtectedResourceMetadata("https://backend.com", null);
+        assertThat(resourceMetadata.protectedResourceUri()).isEqualTo("https://backend.com");
+        assertThat(resourceMetadata.authorizationServers().get(0)).isEqualTo("https://am.gateway.dev/test/oidc");
+        assertThat(resourceMetadata.authorizationServers()).hasSize(1);
+        assertThat(resourceMetadata.scopesSupported()).isEmpty();
     }
 
     private void testGetProtectedResourceMetadata(String serverUrl, String securityDomain)
