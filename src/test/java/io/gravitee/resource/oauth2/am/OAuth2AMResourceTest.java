@@ -16,6 +16,7 @@
 package io.gravitee.resource.oauth2.am;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.containing;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
@@ -40,12 +41,15 @@ import io.gravitee.plugin.configurations.ssl.SslOptions;
 import io.gravitee.resource.api.AbstractConfigurableResource;
 import io.gravitee.resource.oauth2.am.configuration.OAuth2ResourceConfiguration;
 import io.gravitee.resource.oauth2.api.OAuth2ResourceMetadata;
+import io.gravitee.resource.oauth2.api.tokenexchange.TokenExchangeRequest;
+import io.gravitee.resource.oauth2.api.tokenexchange.TokenExchangeResponse;
 import io.vertx.rxjava3.core.Vertx;
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -382,6 +386,251 @@ public class OAuth2AMResourceTest {
         assertThat(resourceMetadata.authorizationServers().get(0)).isEqualTo("https://am.gateway.dev/test/oidc");
         assertThat(resourceMetadata.authorizationServers()).hasSize(1);
         assertThat(resourceMetadata.scopesSupported()).isEmpty();
+    }
+
+    @Test
+    public void shouldExchangeToken() throws Exception {
+        wiremock.stubFor(
+            post(urlEqualTo("/domain/oauth/token")).willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withBody(
+                        "{\"access_token\":\"exchanged-token\"," +
+                            "\"issued_token_type\":\"urn:ietf:params:oauth:token-type:access_token\"," +
+                            "\"token_type\":\"Bearer\",\"expires_in\":300,\"scope\":\"mcp:tools\"," +
+                            "\"refresh_token\":\"refresh-token\"}"
+                    )
+            )
+        );
+
+        configuration.setClientId("my-client");
+        configuration.setClientSecret("my-secret");
+
+        final CountDownLatch lock = new CountDownLatch(1);
+        final AtomicReference<TokenExchangeResponse> result = new AtomicReference<>();
+
+        resource.doStart();
+        resource.tokenExchange(
+            TokenExchangeRequest.builder("subject-token", TokenExchangeRequest.TOKEN_TYPE_ACCESS_TOKEN)
+                .audience("mcp-upstream")
+                .scope("mcp:tools")
+                .build(),
+            response -> {
+                result.set(response);
+                lock.countDown();
+            }
+        );
+
+        assertThat(lock.await(10000, TimeUnit.MILLISECONDS)).isTrue();
+        assertThat(result.get().isSuccess()).isTrue();
+        assertThat(result.get().getAccessToken()).isEqualTo("exchanged-token");
+        assertThat(result.get().getIssuedTokenType()).isEqualTo("urn:ietf:params:oauth:token-type:access_token");
+        assertThat(result.get().getTokenType()).isEqualTo("Bearer");
+        assertThat(result.get().getExpiresIn()).isEqualTo(300L);
+        assertThat(result.get().getScope()).isEqualTo("mcp:tools");
+        assertThat(result.get().getRefreshToken()).isEqualTo("refresh-token");
+
+        wiremock.verify(
+            postRequestedFor(urlEqualTo("/domain/oauth/token"))
+                .withHeader(HttpHeaders.CONTENT_TYPE, equalTo(MediaType.APPLICATION_FORM_URLENCODED))
+                .withHeader(HttpHeaders.AUTHORIZATION, equalTo("Basic bXktY2xpZW50Om15LXNlY3JldA=="))
+                .withRequestBody(containing("grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Atoken-exchange"))
+                .withRequestBody(containing("subject_token=subject-token"))
+                .withRequestBody(containing("subject_token_type=urn%3Aietf%3Aparams%3Aoauth%3Atoken-type%3Aaccess_token"))
+                .withRequestBody(containing("audience=mcp-upstream"))
+                .withRequestBody(containing("scope=mcp%3Atools"))
+        );
+    }
+
+    @Test
+    public void shouldFailTokenExchangeWhenEndpointReturnsAnError() throws Exception {
+        wiremock.stubFor(
+            post(urlEqualTo("/domain/oauth/token")).willReturn(
+                aResponse().withStatus(400).withBody("{\"error\":\"invalid_grant\",\"error_description\":\"token is not active\"}")
+            )
+        );
+
+        final CountDownLatch lock = new CountDownLatch(1);
+        final AtomicReference<TokenExchangeResponse> result = new AtomicReference<>();
+
+        resource.doStart();
+        resource.tokenExchange(
+            TokenExchangeRequest.builder("subject-token", TokenExchangeRequest.TOKEN_TYPE_ACCESS_TOKEN).build(),
+            response -> {
+                result.set(response);
+                lock.countDown();
+            }
+        );
+
+        assertThat(lock.await(10000, TimeUnit.MILLISECONDS)).isTrue();
+        assertThat(result.get().isSuccess()).isFalse();
+        assertThat(result.get().getThrowable()).hasMessageContaining("400");
+        assertThat(result.get().getThrowable()).hasMessageContaining("invalid_grant");
+        assertThat(result.get().getThrowable()).hasMessageContaining("token is not active");
+    }
+
+    @Test
+    public void shouldFailTokenExchangeWhenSubjectTokenIsMissing() throws Exception {
+        final CountDownLatch lock = new CountDownLatch(1);
+        final AtomicReference<TokenExchangeResponse> result = new AtomicReference<>();
+
+        resource.doStart();
+        resource.tokenExchange(TokenExchangeRequest.builder(null, TokenExchangeRequest.TOKEN_TYPE_ACCESS_TOKEN).build(), response -> {
+            result.set(response);
+            lock.countDown();
+        });
+
+        assertThat(lock.await(10000, TimeUnit.MILLISECONDS)).isTrue();
+        assertThat(result.get().isSuccess()).isFalse();
+        assertThat(result.get().getThrowable()).hasMessageContaining("subject_token is required");
+
+        wiremock.verify(0, postRequestedFor(urlEqualTo("/domain/oauth/token")));
+    }
+
+    @Test
+    public void shouldSendEveryOptionalTokenExchangeParameter() throws Exception {
+        wiremock.stubFor(post(urlEqualTo("/domain/oauth/token")).willReturn(aResponse().withStatus(200).withBody(MINIMAL_TOKEN_RESPONSE)));
+
+        TokenExchangeResponse result = exchange(
+            TokenExchangeRequest.builder("subject-token", TokenExchangeRequest.TOKEN_TYPE_ACCESS_TOKEN)
+                .resource("https://mcp.example.com/tools")
+                .requestedTokenType(TokenExchangeRequest.TOKEN_TYPE_ACCESS_TOKEN)
+                .actorToken("actor-token", TokenExchangeRequest.TOKEN_TYPE_ACCESS_TOKEN)
+                .build()
+        );
+
+        assertThat(result.isSuccess()).isTrue();
+        wiremock.verify(
+            postRequestedFor(urlEqualTo("/domain/oauth/token"))
+                .withRequestBody(containing("resource=https%3A%2F%2Fmcp.example.com%2Ftools"))
+                .withRequestBody(containing("requested_token_type=urn%3Aietf%3Aparams%3Aoauth%3Atoken-type%3Aaccess_token"))
+                .withRequestBody(containing("actor_token=actor-token"))
+                .withRequestBody(containing("actor_token_type=urn%3Aietf%3Aparams%3Aoauth%3Atoken-type%3Aaccess_token"))
+        );
+    }
+
+    @Test
+    public void shouldFailTokenExchangeWhenSubjectTokenTypeIsMissing() throws Exception {
+        TokenExchangeResponse result = exchange(TokenExchangeRequest.builder("subject-token", null).build());
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getThrowable()).hasMessageContaining("subject_token_type is required");
+        wiremock.verify(0, postRequestedFor(urlEqualTo("/domain/oauth/token")));
+    }
+
+    @Test
+    public void shouldFailTokenExchangeWhenResponseHasNoAccessToken() throws Exception {
+        wiremock.stubFor(
+            post(urlEqualTo("/domain/oauth/token")).willReturn(aResponse().withStatus(200).withBody("{\"token_type\":\"Bearer\"}"))
+        );
+
+        TokenExchangeResponse result = exchange(subjectTokenRequest());
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getThrowable()).hasMessageContaining("access_token");
+    }
+
+    @Test
+    public void shouldFailTokenExchangeWhenResponseHasNoTokenType() throws Exception {
+        // RFC 8693 section 2.2.1 requires token_type: without it the consumer cannot build an Authorization header
+        wiremock.stubFor(
+            post(urlEqualTo("/domain/oauth/token")).willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withBody("{\"access_token\":\"t\",\"issued_token_type\":\"urn:ietf:params:oauth:token-type:access_token\"}")
+            )
+        );
+
+        TokenExchangeResponse result = exchange(subjectTokenRequest());
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getThrowable()).hasMessageContaining("token_type");
+    }
+
+    @Test
+    public void shouldFailTokenExchangeWhenResponseHasNoIssuedTokenType() throws Exception {
+        wiremock.stubFor(
+            post(urlEqualTo("/domain/oauth/token")).willReturn(
+                aResponse().withStatus(200).withBody("{\"access_token\":\"t\",\"token_type\":\"Bearer\"}")
+            )
+        );
+
+        TokenExchangeResponse result = exchange(subjectTokenRequest());
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getThrowable()).hasMessageContaining("issued_token_type");
+    }
+
+    @Test
+    public void shouldAcceptExpiresInSentAsAString() throws Exception {
+        wiremock.stubFor(
+            post(urlEqualTo("/domain/oauth/token")).willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withBody(
+                        "{\"access_token\":\"t\",\"issued_token_type\":\"urn:ietf:params:oauth:token-type:access_token\"," +
+                            "\"token_type\":\"Bearer\",\"expires_in\":\"300\"}"
+                    )
+            )
+        );
+
+        TokenExchangeResponse result = exchange(subjectTokenRequest());
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getExpiresIn()).isEqualTo(300L);
+    }
+
+    @Test
+    public void shouldIgnoreOptionalFieldsOfTheWrongType() throws Exception {
+        // an optional field must not fail an exchange that already produced a usable access token
+        wiremock.stubFor(
+            post(urlEqualTo("/domain/oauth/token")).willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withBody(
+                        "{\"access_token\":\"t\",\"issued_token_type\":\"urn:ietf:params:oauth:token-type:access_token\"," +
+                            "\"token_type\":\"Bearer\",\"expires_in\":\"soon\",\"scope\":[\"a\"],\"refresh_token\":42}"
+                    )
+            )
+        );
+
+        TokenExchangeResponse result = exchange(subjectTokenRequest());
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getAccessToken()).isEqualTo("t");
+        assertThat(result.getExpiresIn()).isNull();
+        assertThat(result.getScope()).isNull();
+        assertThat(result.getRefreshToken()).isNull();
+    }
+
+    @Test
+    public void shouldFailTokenExchangeWhenSuccessBodyIsNotJson() throws Exception {
+        wiremock.stubFor(post(urlEqualTo("/domain/oauth/token")).willReturn(aResponse().withStatus(200).withBody("<html>oops</html>")));
+
+        TokenExchangeResponse result = exchange(subjectTokenRequest());
+
+        assertThat(result.isSuccess()).isFalse();
+    }
+
+    private static final String MINIMAL_TOKEN_RESPONSE =
+        "{\"access_token\":\"t\",\"issued_token_type\":\"urn:ietf:params:oauth:token-type:access_token\",\"token_type\":\"Bearer\"}";
+
+    private static TokenExchangeRequest subjectTokenRequest() {
+        return TokenExchangeRequest.builder("subject-token", TokenExchangeRequest.TOKEN_TYPE_ACCESS_TOKEN).build();
+    }
+
+    private TokenExchangeResponse exchange(TokenExchangeRequest request) throws Exception {
+        final CountDownLatch lock = new CountDownLatch(1);
+        final AtomicReference<TokenExchangeResponse> result = new AtomicReference<>();
+
+        resource.doStart();
+        resource.tokenExchange(request, response -> {
+            result.set(response);
+            lock.countDown();
+        });
+
+        assertThat(lock.await(10000, TimeUnit.MILLISECONDS)).isTrue();
+        return result.get();
     }
 
     private void testGetProtectedResourceMetadata(String serverUrl, String securityDomain)

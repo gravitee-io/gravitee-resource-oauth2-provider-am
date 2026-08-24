@@ -25,7 +25,8 @@ The configuration comes in two variants:
 |===
 |Plugin version | APIM version
 
-|4.0 and upper                  | 4.10.x to latest
+|6.0 and upper                  | 4.12.18 to latest
+|4.0 and upper                  | 4.10.x to 4.12.17
 |3.0 and upper                  | 4.4.x to 4.9.x
 |2.0 and upper                  | 3.18.x to 4.3.X
 |1.14.x and upper               | 3.10.x to 3.17.x
