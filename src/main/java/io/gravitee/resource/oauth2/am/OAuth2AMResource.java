@@ -35,14 +35,20 @@ import io.gravitee.resource.oauth2.api.OAuth2ResourceException;
 import io.gravitee.resource.oauth2.api.OAuth2ResourceMetadata;
 import io.gravitee.resource.oauth2.api.OAuth2Response;
 import io.gravitee.resource.oauth2.api.openid.UserInfoResponse;
+import io.gravitee.resource.oauth2.api.tokenexchange.TokenExchangeRequest;
+import io.gravitee.resource.oauth2.api.tokenexchange.TokenExchangeResponse;
 import io.vertx.core.http.*;
 import io.vertx.core.json.JsonObject;
 import io.vertx.rxjava3.core.Vertx;
 import java.net.URI;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import javax.inject.Inject;
 import lombok.Setter;
 import org.slf4j.Logger;
@@ -67,11 +73,14 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
 
     private static final String CHECK_TOKEN_ENDPOINT = "/oauth/check_token";
     private static final String INTROSPECT_ENDPOINT_V2 = "/oauth/introspect";
+    private static final String TOKEN_ENDPOINT = "/oauth/token";
 
     private static final String USERINFO_ENDPOINT = "/userinfo";
     private static final String USERINFO_ENDPOINT_V2 = "/oidc/userinfo";
 
     private static final String INTROSPECTION_ACTIVE_INDICATOR = "active";
+
+    private static final String TOKEN_EXCHANGE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:token-exchange";
 
     private static final String PATH_SEPARATOR = "/";
     private ApplicationContext applicationContext;
@@ -83,6 +92,7 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
     private String introspectionEndpointURI;
     private String introspectionEndpointAuthorization;
     private String userInfoEndpointURI;
+    private String tokenExchangeEndpointURI;
     private OAuth2ResourceConfiguration configuration;
 
     @Inject
@@ -150,6 +160,9 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
 
             userInfoEndpointURI = path + configuration().getSecurityDomain() + USERINFO_ENDPOINT_V2;
         }
+
+        // The token endpoint is the same across AM versions
+        tokenExchangeEndpointURI = path + configuration().getSecurityDomain() + TOKEN_ENDPOINT;
 
         userAgent = NodeUtils.userAgent(applicationContext.getBean(Node.class));
     }
@@ -226,6 +239,162 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
                         }
                     });
             });
+    }
+
+    @Override
+    public void tokenExchange(TokenExchangeRequest tokenExchangeRequest, Handler<TokenExchangeResponse> responseHandler) {
+        String validationError = validateTokenExchangeRequest(tokenExchangeRequest);
+        if (validationError != null) {
+            responseHandler.handle(new TokenExchangeResponse(new IllegalArgumentException(validationError)));
+            return;
+        }
+
+        logger.debug("Exchange token by requesting {}", tokenExchangeEndpointURI);
+
+        final RequestOptions reqOptions = new RequestOptions()
+            .setMethod(HttpMethod.POST)
+            .setURI(tokenExchangeEndpointURI)
+            .putHeader(HttpHeaders.USER_AGENT, userAgent)
+            .putHeader("X-Gravitee-Request-Id", UUID.toString(UUID.random()))
+            .putHeader(HttpHeaders.AUTHORIZATION, introspectionEndpointAuthorization)
+            .putHeader(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON)
+            .putHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_FORM_URLENCODED)
+            .setTimeout(30000L);
+
+        httpClient
+            .request(reqOptions)
+            .compose(request -> request.send(toTokenExchangeFormBody(tokenExchangeRequest)))
+            .onFailure(event -> {
+                logger.error("An error occurs while exchanging OAuth2 token", event);
+                responseHandler.handle(new TokenExchangeResponse(event));
+            })
+            .onSuccess(response ->
+                response
+                    .body()
+                    .onComplete(bodyResult -> {
+                        if (bodyResult.failed()) {
+                            logger.error("An error occurs while reading token exchange response body", bodyResult.cause());
+                            responseHandler.handle(new TokenExchangeResponse(bodyResult.cause()));
+                            return;
+                        }
+
+                        String body = bodyResult.result().toString();
+                        logger.debug("AM token endpoint returns a response with a {} status code", response.statusCode());
+
+                        if (response.statusCode() == HttpStatusCode.OK_200) {
+                            handleTokenExchangeSuccess(body, responseHandler);
+                        } else {
+                            handleTokenExchangeError(response.statusCode(), body, responseHandler);
+                        }
+                    })
+            );
+    }
+
+    /**
+     * @return a message describing why the request cannot be performed, or {@code null} when it is valid.
+     */
+    private String validateTokenExchangeRequest(TokenExchangeRequest tokenExchangeRequest) {
+        if (tokenExchangeRequest == null) {
+            return "tokenExchangeRequest cannot be null";
+        }
+        if (tokenExchangeRequest.getSubjectToken() == null || tokenExchangeRequest.getSubjectToken().isBlank()) {
+            return "subject_token is required";
+        }
+        if (tokenExchangeRequest.getSubjectTokenType() == null || tokenExchangeRequest.getSubjectTokenType().isBlank()) {
+            return "subject_token_type is required";
+        }
+        return null;
+    }
+
+    private void handleTokenExchangeSuccess(String body, Handler<TokenExchangeResponse> responseHandler) {
+        try {
+            JsonObject payload = new JsonObject(body);
+
+            String accessToken = payload.getString("access_token");
+            if (accessToken == null) {
+                responseHandler.handle(
+                    new TokenExchangeResponse(new OAuth2ResourceException("Token exchange response does not contain an access_token"))
+                );
+                return;
+            }
+
+            TokenExchangeResponse.Builder responseBuilder = TokenExchangeResponse.builder(
+                accessToken,
+                payload.getString("issued_token_type"),
+                payload.getString("token_type")
+            );
+
+            if (payload.containsKey("expires_in")) {
+                responseBuilder.expiresIn(payload.getLong("expires_in"));
+            }
+            if (payload.containsKey("scope")) {
+                responseBuilder.scope(payload.getString("scope"));
+            }
+            if (payload.containsKey("refresh_token")) {
+                responseBuilder.refreshToken(payload.getString("refresh_token"));
+            }
+
+            responseHandler.handle(responseBuilder.build());
+        } catch (Exception e) {
+            logger.error("Unable to parse token exchange response payload: {}", body, e);
+            responseHandler.handle(new TokenExchangeResponse(e));
+        }
+    }
+
+    /**
+     * Surfaces the OAuth error returned by AM (RFC 6749 section 5.2, referenced by RFC 8693 section
+     * 2.2.2) instead of a generic failure, so a misconfigured exchange can be diagnosed from the policy
+     * error without reading the gateway logs.
+     */
+    private void handleTokenExchangeError(int statusCode, String body, Handler<TokenExchangeResponse> responseHandler) {
+        String detail = null;
+        try {
+            JsonObject payload = new JsonObject(body);
+            String error = payload.getString("error");
+            if (error != null) {
+                String description = payload.getString("error_description");
+                detail = description != null ? error + ": " + description : error;
+            }
+        } catch (Exception e) {
+            logger.debug("Token exchange error response is not a valid JSON payload", e);
+        }
+
+        String message = detail != null
+            ? "An error occurs while exchanging OAuth2 token (" + statusCode + " " + detail + ")"
+            : "An error occurs while exchanging OAuth2 token (" + statusCode + ")";
+
+        logger.error("An error occurs while exchanging OAuth2 token. Request ends with status {}: {}", statusCode, detail);
+        responseHandler.handle(new TokenExchangeResponse(new OAuth2ResourceException(message)));
+    }
+
+    private String toTokenExchangeFormBody(TokenExchangeRequest tokenExchangeRequest) {
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("grant_type", TOKEN_EXCHANGE_GRANT_TYPE);
+        form.put("subject_token", tokenExchangeRequest.getSubjectToken());
+        form.put("subject_token_type", tokenExchangeRequest.getSubjectTokenType());
+        putIfPresent(form, "resource", tokenExchangeRequest.getResource());
+        putIfPresent(form, "audience", tokenExchangeRequest.getAudience());
+        putIfPresent(form, "scope", tokenExchangeRequest.getScope());
+        putIfPresent(form, "requested_token_type", tokenExchangeRequest.getRequestedTokenType());
+        putIfPresent(form, "actor_token", tokenExchangeRequest.getActorToken());
+        putIfPresent(form, "actor_token_type", tokenExchangeRequest.getActorTokenType());
+
+        return form
+            .entrySet()
+            .stream()
+            .map(
+                entry ->
+                    URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8) +
+                    '=' +
+                    URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8)
+            )
+            .collect(Collectors.joining("&"));
+    }
+
+    private static void putIfPresent(Map<String, String> form, String key, String value) {
+        if (value != null && !value.isBlank()) {
+            form.put(key, value);
+        }
     }
 
     @Override
