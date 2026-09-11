@@ -1,52 +1,101 @@
 {
     "type": "object",
     "$schema": "http://json-schema.org/draft-07/schema#",
-    "properties": {
-        "serverURL": {
-            "title": "Server URL",
-            "description": "The URL of the Access Management server.",
-            "type": "string"
+    "oneOf": [
+        {
+            "title": "Token introspection (OAuth2)",
+            "properties": {
+                "mode": {
+                    "const": "INTROSPECTION"
+                },
+                "serverURL": {
+                    "title": "Server URL",
+                    "description": "The URL of the Access Management server.",
+                    "type": "string"
+                },
+                "version": {
+                    "title": "Version",
+                    "description": "The version of the Access Management server.",
+                    "type": "string",
+                    "default": "V3_X",
+                    "enum": ["V1_X", "V2_X", "V3_X"]
+                },
+                "securityDomain": {
+                    "title": "Security domain",
+                    "description": "The security domain (realm) from where the token has been generated and must be introspect.",
+                    "type": "string"
+                },
+                "clientId": {
+                    "title": "Client Id",
+                    "description": "Client identifier, used for token introspection only. The UserInfo call authenticates with the caller's own access token. (Supports EL and secrets)",
+                    "type": "string"
+                },
+                "clientSecret": {
+                    "title": "Client Secret",
+                    "description": "Client secret, used for token introspection only. The UserInfo call authenticates with the caller's own access token. (Supports EL and secrets)",
+                    "type": "string",
+                    "format": "password"
+                },
+                "userClaim": {
+                    "title": "User claim",
+                    "description": "User claim field used to store end user on log analytics",
+                    "type": "string",
+                    "default": "sub"
+                },
+                "http": {
+                    "$ref": "#/gioExternalDefinitions/httpClientOptions"
+                },
+                "proxy": {
+                    "$ref": "#/gioExternalDefinitions/httpProxyOptions"
+                },
+                "ssl": {
+                    "$ref": "#/gioExternalDefinitions/sslOptions"
+                }
+            },
+            "required": ["serverURL", "version", "securityDomain", "clientId", "clientSecret"]
         },
-        "version": {
-            "title": "Version",
-            "description": "The version of the Access Management server.",
-            "type": "string",
-            "default": "V3_X",
-            "enum": ["V1_X", "V2_X", "V3_X"]
-        },
-        "securityDomain": {
-            "title": "Security domain",
-            "description": "The security domain (realm) from where the token has been generated and must be introspect.",
-            "type": "string"
-        },
-        "clientId": {
-            "title": "Client Id",
-            "description": "The client identifier.",
-            "type": "string"
-        },
-        "clientSecret": {
-            "title": "Client Secret",
-            "description": "The client secret.",
-            "type": "string",
-            "format": "password"
-        },
-        "userClaim": {
-            "title": "User claim",
-            "description": "User claim field used to store end user on log analytics",
-            "type": "string",
-            "default": "sub"
-        },
-        "http": {
-            "$ref": "#/gioExternalDefinitions/httpClientOptions"
-        },
-        "proxy": {
-            "$ref": "#/gioExternalDefinitions/httpProxyOptions"
-        },
-        "ssl": {
-            "$ref": "#/gioExternalDefinitions/sslOptions"
+        {
+            "title": "UserInfo only (OIDC)",
+            "properties": {
+                "mode": {
+                    "const": "USERINFO"
+                },
+                "serverURL": {
+                    "title": "Server URL",
+                    "description": "The URL of the Access Management server.",
+                    "type": "string"
+                },
+                "version": {
+                    "title": "Version",
+                    "description": "The version of the Access Management server.",
+                    "type": "string",
+                    "default": "V3_X",
+                    "enum": ["V1_X", "V2_X", "V3_X"]
+                },
+                "securityDomain": {
+                    "title": "Security domain",
+                    "description": "The security domain (realm) from where the token has been generated and must be introspect.",
+                    "type": "string"
+                },
+                "userClaim": {
+                    "title": "User claim",
+                    "description": "User claim field used to store end user on log analytics",
+                    "type": "string",
+                    "default": "sub"
+                },
+                "http": {
+                    "$ref": "#/gioExternalDefinitions/httpClientOptions"
+                },
+                "proxy": {
+                    "$ref": "#/gioExternalDefinitions/httpProxyOptions"
+                },
+                "ssl": {
+                    "$ref": "#/gioExternalDefinitions/sslOptions"
+                }
+            },
+            "required": ["mode", "serverURL", "version", "securityDomain"]
         }
-    },
-    "required": ["serverURL", "version", "securityDomain", "clientId", "clientSecret"],
+    ],
     "definitions": {
         "httpClientOptions": {
             "type": "object",
