@@ -1,3 +1,10 @@
+# [5.1.0](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/compare/5.0.0...5.1.0) (2026-09-11)
+
+
+### Features
+
+* **schema:** split configuration into introspection and userinfo variants ([b126fe1](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/commit/b126fe15bc5d4cac5fc243dcc7d3a86a05f0d537))
+
 # [5.0.0](https://github.com/gravitee-io/gravitee-resource-oauth2-provider-am/compare/4.0.1...5.0.0) (2026-06-24)
 
 
