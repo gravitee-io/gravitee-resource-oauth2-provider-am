@@ -18,6 +18,7 @@ package io.gravitee.resource.oauth2.am;
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
@@ -25,6 +26,8 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMoc
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.lenient;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.http.Fault;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import io.gravitee.common.http.HttpHeaders;
@@ -395,5 +398,88 @@ public class OAuth2AMResourceTest {
         assertThat(resourceMetadata.authorizationServers().get(0)).isEqualTo("https://am.gateway.dev/test/oidc");
         assertThat(resourceMetadata.authorizationServers()).hasSize(1);
         assertThat(resourceMetadata.scopesSupported()).isEmpty();
+    }
+
+    /** Same leniency as the gateway, see ResourceConfigurationFactoryImpl. */
+    private static final ObjectMapper GATEWAY_MAPPER = new ObjectMapper().configure(
+        DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,
+        false
+    );
+
+    private void loadConfigurationFrom(String json) throws Exception {
+        Field configurationField = AbstractConfigurableResource.class.getDeclaredField("configuration");
+        configurationField.setAccessible(true);
+        configurationField.set(resource, GATEWAY_MAPPER.readValue(json, OAuth2ResourceConfiguration.class));
+    }
+
+    @Test
+    public void shouldGetUserInfoFromAConfigurationWrittenBeforeTheVariantSplit() throws Exception {
+        wiremock.stubFor(
+            get(urlEqualTo("/domain/oidc/userinfo")).willReturn(
+                aResponse().withStatus(200).withBody("{\"sub\": \"248289761001\", \"name\": \"Jane Doe\"}")
+            )
+        );
+
+        // no discriminator, as stored by any existing API
+        loadConfigurationFrom(
+            """
+            {
+              "serverURL": "http://localhost:%d",
+              "version": "V2_X",
+              "securityDomain": "domain",
+              "clientId": "a-client",
+              "clientSecret": "a-secret"
+            }
+            """.formatted(wiremock.getPort())
+        );
+
+        final CountDownLatch lock = new CountDownLatch(1);
+
+        resource.doStart();
+
+        resource.userInfo("xxxx-xxxx-xxxx-xxxx", userInfoResponse -> {
+            assertThat(userInfoResponse.isSuccess()).isTrue();
+            lock.countDown();
+        });
+
+        assertThat(lock.await(10000, TimeUnit.MILLISECONDS)).isTrue();
+        wiremock.verify(
+            getRequestedFor(urlEqualTo("/domain/oidc/userinfo")).withHeader("Authorization", equalTo("Bearer xxxx-xxxx-xxxx-xxxx"))
+        );
+    }
+
+    @Test
+    public void shouldGetUserInfoFromAUserInfoVariantConfiguration() throws Exception {
+        wiremock.stubFor(
+            get(urlEqualTo("/domain/oidc/userinfo")).willReturn(
+                aResponse().withStatus(200).withBody("{\"sub\": \"248289761001\", \"name\": \"Jane Doe\"}")
+            )
+        );
+
+        // the discriminator has no Java counterpart: the gateway must ignore it
+        loadConfigurationFrom(
+            """
+            {
+              "mode": "USERINFO",
+              "serverURL": "http://localhost:%d",
+              "version": "V2_X",
+              "securityDomain": "domain"
+            }
+            """.formatted(wiremock.getPort())
+        );
+
+        final CountDownLatch lock = new CountDownLatch(1);
+
+        resource.doStart();
+
+        resource.userInfo("xxxx-xxxx-xxxx-xxxx", userInfoResponse -> {
+            assertThat(userInfoResponse.isSuccess()).isTrue();
+            lock.countDown();
+        });
+
+        assertThat(lock.await(10000, TimeUnit.MILLISECONDS)).isTrue();
+        wiremock.verify(
+            getRequestedFor(urlEqualTo("/domain/oidc/userinfo")).withHeader("Authorization", equalTo("Bearer xxxx-xxxx-xxxx-xxxx"))
+        );
     }
 }
