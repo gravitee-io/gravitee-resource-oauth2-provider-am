@@ -20,18 +20,21 @@ The configuration comes in two variants:
 * *UserInfo only (OIDC)*, used by the `OpenID Connect - UserInfo` policy alone, typically when the API is secured by a
   JWT plan. See <<_userinfo_only>>.
 
-== Compatibility with APIM
+== Compatibility matrix
 
 |===
-|Plugin version | APIM version
+| Plugin version   | APIM              | Java version
 
-|6.0 and upper                  | 4.12.18 to latest
-|4.0 and upper                  | 4.10.x to 4.12.17
-|3.0 and upper                  | 4.4.x to 4.9.x
-|2.0 and upper                  | 3.18.x to 4.3.X
-|1.14.x and upper               | 3.10.x to 3.17.x
-|Up to 1.13.x                   | Up to 3.9.x
+| 6.0 and upper    | 4.12.18 to latest | 21
+| 5.0 and upper    | 4.12.x to 4.12.17 | 21
+| 4.0 and upper    | 4.10.x to 4.11.x  | 21
+| 3.0 and upper    | 4.4.x to 4.9.x    | 17
+| 2.0 and upper    | 3.18.x to 4.3.X   | 11
+| 1.14.x and upper | 3.10.x to 3.17.x  | 11
+| Up to 1.13.x     | Up to 3.9.x       | 8
 |===
+
+The *Java version* column is the bytecode level of the latest release of each line, which sets the minimum runtime able to load the artifact.
 
 == Configuration
 
