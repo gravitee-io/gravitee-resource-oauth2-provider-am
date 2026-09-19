@@ -50,9 +50,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
+import lombok.CustomLog;
 import lombok.Setter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
@@ -61,9 +60,8 @@ import org.springframework.context.ApplicationContextAware;
  * @author David BRASSELY (david.brassely at graviteesource.com)
  * @author GraviteeSource Team
  */
+@CustomLog
 public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration> implements ApplicationContextAware {
-
-    private final Logger logger = LoggerFactory.getLogger(OAuth2AMResource.class);
 
     private static final String HTTPS_SCHEME = "https";
 
@@ -114,7 +112,7 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
 
         configuration = new OAuth2ResourceConfigurationEvaluator(configuration()).evalNow(deploymentContext);
 
-        logger.info("Starting an OAuth2 resource using Gravitee.io Access Management server at {}", configuration().getServerURL());
+        log.info("Starting an OAuth2 resource using Gravitee.io Access Management server at {}", configuration().getServerURL());
 
         URL introspectionUrl = new URL(configuration().getServerURL());
 
@@ -174,13 +172,13 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
         try {
             httpClient.close();
         } catch (IllegalStateException ise) {
-            logger.warn(ise.getMessage());
+            log.warn(ise.getMessage());
         }
     }
 
     @Override
     public void introspect(String accessToken, Handler<OAuth2Response> responseHandler) {
-        logger.debug("Introspect access token by requesting {}", introspectionEndpointURI);
+        log.debug("Introspect access token by requesting {}", introspectionEndpointURI);
 
         final RequestOptions reqOptions = new RequestOptions()
             .setMethod(HttpMethod.POST)
@@ -196,16 +194,16 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
             .request(reqOptions)
             .compose(request -> request.send("token=" + accessToken))
             .onFailure(event -> {
-                logger.debug("An error occurs while checking access token", event);
+                log.debug("An error occurs while checking access token", event);
                 responseHandler.handle(new OAuth2Response(event));
             })
             .onSuccess(response -> {
-                logger.debug("AM Introspection endpoint returns a response with a {} status code", response.statusCode());
+                log.debug("AM Introspection endpoint returns a response with a {} status code", response.statusCode());
                 response
                     .body()
                     .onComplete(bodyResult -> {
                         if (bodyResult.failed()) {
-                            logger.debug("An error occurs while reading introspection response body", bodyResult.cause());
+                            log.debug("An error occurs while reading introspection response body", bodyResult.cause());
                             responseHandler.handle(new OAuth2Response(bodyResult.cause()));
                             return;
                         }
@@ -224,12 +222,12 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
                                         new OAuth2Response(active, (active) ? buffer.toString() : "{\"error\": \"Invalid Access Token\"}")
                                     );
                                 } catch (Exception e) {
-                                    logger.debug("An error occurs while parsing introspection response", e);
+                                    log.debug("An error occurs while parsing introspection response", e);
                                     responseHandler.handle(new OAuth2Response(e));
                                 }
                             }
                         } else {
-                            logger.debug(
+                            log.debug(
                                 "An error occurs while checking access token. Request ends with status {}: {}",
                                 response.statusCode(),
                                 buffer.toString()
@@ -250,7 +248,7 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
             return;
         }
 
-        logger.debug("Exchange token by requesting {}", tokenExchangeEndpointURI);
+        log.debug("Exchange token by requesting {}", tokenExchangeEndpointURI);
 
         final RequestOptions reqOptions = new RequestOptions()
             .setMethod(HttpMethod.POST)
@@ -266,7 +264,7 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
             .request(reqOptions)
             .compose(request -> request.send(toTokenExchangeFormBody(tokenExchangeRequest)))
             .onFailure(event -> {
-                logger.debug("An error occurs while exchanging OAuth2 token", event);
+                log.debug("An error occurs while exchanging OAuth2 token", event);
                 responseHandler.handle(new TokenExchangeResponse(event));
             })
             .onSuccess(response ->
@@ -274,13 +272,13 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
                     .body()
                     .onComplete(bodyResult -> {
                         if (bodyResult.failed()) {
-                            logger.debug("An error occurs while reading token exchange response body", bodyResult.cause());
+                            log.debug("An error occurs while reading token exchange response body", bodyResult.cause());
                             responseHandler.handle(new TokenExchangeResponse(bodyResult.cause()));
                             return;
                         }
 
                         String body = bodyResult.result().toString();
-                        logger.debug("AM token endpoint returns a response with a {} status code", response.statusCode());
+                        log.debug("AM token endpoint returns a response with a {} status code", response.statusCode());
 
                         if (response.statusCode() == HttpStatusCode.OK_200) {
                             handleTokenExchangeSuccess(body, responseHandler);
@@ -334,7 +332,7 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
             );
         } catch (Exception e) {
             // the body is the token payload: never log it
-            logger.debug("Unable to parse token exchange response payload", e);
+            log.debug("Unable to parse token exchange response payload", e);
             responseHandler.handle(new TokenExchangeResponse(e));
         }
     }
@@ -379,14 +377,14 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
                 detail = description != null ? error + ": " + description : error;
             }
         } catch (Exception e) {
-            logger.debug("Token exchange error response is not a valid JSON payload", e);
+            log.debug("Token exchange error response is not a valid JSON payload", e);
         }
 
         String message = detail != null
             ? "An error occurs while exchanging OAuth2 token (" + statusCode + " " + detail + ")"
             : "An error occurs while exchanging OAuth2 token (" + statusCode + ")";
 
-        logger.debug("An error occurs while exchanging OAuth2 token. Request ends with status {}: {}", statusCode, detail);
+        log.debug("An error occurs while exchanging OAuth2 token. Request ends with status {}: {}", statusCode, detail);
         responseHandler.handle(new TokenExchangeResponse(new OAuth2ResourceException(message)));
     }
 
@@ -422,7 +420,7 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
 
     @Override
     public void userInfo(String accessToken, Handler<UserInfoResponse> responseHandler) {
-        logger.debug("Get userinfo from {}", userInfoEndpointURI);
+        log.debug("Get userinfo from {}", userInfoEndpointURI);
 
         final RequestOptions reqOptions = new RequestOptions()
             .setMethod(HttpMethod.GET)
@@ -436,7 +434,7 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
             .request(reqOptions)
             .compose(HttpClientRequest::send)
             .onFailure(event -> {
-                logger.debug("An error occurs while getting userinfo from access token", event);
+                log.debug("An error occurs while getting userinfo from access token", event);
                 responseHandler.handle(new UserInfoResponse(event));
             })
             .onSuccess(response -> {
@@ -444,17 +442,17 @@ public class OAuth2AMResource extends OAuth2Resource<OAuth2ResourceConfiguration
                     .body()
                     .onComplete(bodyResult -> {
                         if (bodyResult.failed()) {
-                            logger.debug("An error occurs while reading userinfo response body", bodyResult.cause());
+                            log.debug("An error occurs while reading userinfo response body", bodyResult.cause());
                             responseHandler.handle(new UserInfoResponse(bodyResult.cause()));
                             return;
                         }
                         var buffer = bodyResult.result();
-                        logger.debug("Userinfo endpoint returns a response with a {} status code", response.statusCode());
+                        log.debug("Userinfo endpoint returns a response with a {} status code", response.statusCode());
 
                         if (response.statusCode() == HttpStatusCode.OK_200) {
                             responseHandler.handle(new UserInfoResponse(true, buffer.toString()));
                         } else {
-                            logger.debug(
+                            log.debug(
                                 "An error occurs while getting userinfo from access token. Request ends with status {}: {}",
                                 response.statusCode(),
                                 buffer.toString()
